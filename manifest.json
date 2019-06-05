@@ -1,13 +1,13 @@
 {
-	"name": "OpenAerialMap",
+	"name": "Cesium ion",
 	"webodmMinVersion": "0.6.0",
-	"description": "A plugin to upload orthophotos to OpenAerialMap",
-	"version": "0.9.0",
-	"author": "Piero Toffanin",
-	"email": "pt@masseranolabs.com",
-	"repository": "https://github.com/OpenDroneMap/WebODM",
-	"tags": ["oam", "openaerialmap"],
-	"homepage": "https://github.com/OpenDroneMap/WebODM",
+	"description": "Upload and tile models with Cesium ion.",
+	"version": "0.0.0",
+	"author": "Analytical Graphics, Inc.",
+	"email": "hello@cesium.com",
+	"repository": "",
+	"tags": ["cesium ion", "ceium"],
+	"homepage": "https://cesium.com",
 	"experimental": true,
 	"deprecated": false
 }

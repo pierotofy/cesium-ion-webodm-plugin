@@ -1,76 +1,53 @@
-from django.contrib import messages
-from django.shortcuts import render
+import json
 
-from app.plugins import PluginBase, Menu, MountPoint
+from django.dispatch import receiver
+from django.http import HttpResponse
+from guardian.shortcuts import get_objects_for_user, assign_perm
+from rest_framework.renderers import JSONRenderer
+
+from app.plugins import GlobalDataStore, logger
+from app.plugins import PluginBase, Menu, MountPoint, UserDataStore, signals
+from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+
+from nodeodm.models import ProcessingNode
+from app.api.processingnodes import ProcessingNodeSerializer
+
+from app.models import Theme
+from django.contrib import admin
 from django import forms
 
-from plugins.openaerialmap.api import Info, Share
+ds = GlobalDataStore("cesium-ion")
 
 
-class TokenForm(forms.Form):
-    token = forms.CharField(label='', required=False, max_length=1024, widget=forms.TextInput(attrs={'placeholder': 'Token'}))
+def JsonResponse(dict):
+    return HttpResponse(json.dumps(dict), content_type="application/json")
 
 
 class Plugin(PluginBase):
-
-    def main_menu(self):
-        return [Menu("OpenAerialMap", self.public_url(""), "oam-icon fa fa-fw")]
+    def include_css_files(self):
+        return ["font.css"]
 
     def include_js_files(self):
-        return ['main.js']
+        return ["register_admin_button.js"]
 
     def build_jsx_components(self):
-        return ['ShareButton.jsx']
-
-    def include_css_files(self):
-        return ['style.css']
+        return ["admin.jsx"]
 
     def app_mount_points(self):
-        def load_buttons_cb(request):
-            if request.user.is_authenticated:
-                ds = self.get_user_data_store(request.user)
-                token = ds.get_string('token')
-                if token == '':
-                    return False
-
-                return {'token': token}
-            else:
-                return False
-
-        return [
-            MountPoint('$', self.home_view()),
-            MountPoint('main.js$', self.get_dynamic_script(
-                    'load_buttons.js',
-                    load_buttons_cb
-                )
-            )
-        ]
-
-    def api_mount_points(self):
-        return [
-            MountPoint('task/(?P<pk>[^/.]+)/info', Info.as_view()),
-            MountPoint('task/(?P<pk>[^/.]+)/share', Share.as_view())
-        ]
-
-    def home_view(self):
         @login_required
-        def home(request):
-            ds = self.get_user_data_store(request.user)
+        def admin(request):
+            properties = {
+                "title": "Lightning Network",
+                "is_staff": "request.is_staff"
+            }
+            return render(
+                request,
+                self.template_path("admin.html"),
+                properties,
+            )
 
-            # if this is a POST request we need to process the form data
-            if request.method == 'POST':
-                form = TokenForm(request.POST)
-                if form.is_valid():
-                    ds.set_string('token', form.cleaned_data['token'])
-                    messages.success(request, 'Token updated.')
-
-            form = TokenForm(initial={'token': ds.get_string('token', default="")})
-
-            return render(request, self.template_path("app.html"), {
-                'title': 'OpenAerialMap',
-                'form': form
-            })
-
-        return home
-
+        return [
+            MountPoint("admin$", admin),
+        ]

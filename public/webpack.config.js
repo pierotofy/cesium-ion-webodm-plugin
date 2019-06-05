@@ -10,7 +10,7 @@ module.exports = {
   mode: 'production',
   context: __dirname,
 
-  entry: {"ShareButton": ["./ShareButton.jsx"]},
+  entry: {"admin": ["./admin.jsx"]},
 
   output: {
       path: path.join(__dirname, './build'),

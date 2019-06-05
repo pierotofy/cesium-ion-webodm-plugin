@@ -1,0 +1,22 @@
+{% extends "app/plugins/templates/base.html" %}
+
+{% block content %}
+<script>
+const props = {};
+PluginsAPI.App.ready(
+    [
+        'cesium-ion/build/admin.js',
+        'cesium-ion/build/admin.css'
+	],
+    (args, App) => $("[data-ion-panel]").each(
+        (_, elm) => ReactDOM.render(React.createElement(App, props), elm)
+    )
+);
+</script>
+
+<div class="row">
+    <div class="col-md-12">
+        <div data-ion-panel data-api-key="{{ api_key }}"></div>
+    </div>
+</div>
+{% endblock %}
