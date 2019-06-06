@@ -1,3 +1,4 @@
+import re
 import json
 
 from django.dispatch import receiver
@@ -18,11 +19,24 @@ from app.models import Theme
 from django.contrib import admin
 from django import forms
 
-ds = GlobalDataStore("cesium-ion")
-
 
 def JsonResponse(dict):
     return HttpResponse(json.dumps(dict), content_type="application/json")
+
+
+under_pat = re.compile(r'_([a-z])')
+
+
+def underscore_to_camel(name):
+    return under_pat.sub(lambda x: x.group(1).upper(), name)
+
+
+def convert_json(d, convert):
+    new_d = {}
+    for k, v in d.items():
+        new_d[convert(k)] = convert_json(v, convert) if isinstance(v,
+                                                                   dict) else v
+    return new_d
 
 
 class Plugin(PluginBase):
@@ -38,15 +52,15 @@ class Plugin(PluginBase):
     def app_mount_points(self):
         @login_required
         def admin(request):
-            properties = {
-                "title": "Lightning Network",
-                "is_staff": "request.is_staff"
+            react_props = {
+                "is_staff": request.user.is_staff,
             }
-            return render(
-                request,
-                self.template_path("admin.html"),
-                properties,
-            )
+            serialized = json.dumps(
+                convert_json(react_props, underscore_to_camel))
+            return render(request, self.template_path("admin.html"), {
+                "app_id": self.get_name(),
+                "react": serialized
+            })
 
         return [
             MountPoint("admin$", admin),

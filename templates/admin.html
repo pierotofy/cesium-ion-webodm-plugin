@@ -2,11 +2,11 @@
 
 {% block content %}
 <script>
-const props = {};
+const props = JSON.parse("{{ react | escapejs }}");
 PluginsAPI.App.ready(
     [
-        'cesium-ion/build/admin.js',
-        'cesium-ion/build/admin.css'
+        "{{ app_id }}/build/admin.js",
+        "{{ app_id }}/build/admin.css"
 	],
     (args, App) => $("[data-ion-panel]").each(
         (_, elm) => ReactDOM.render(React.createElement(App, props), elm)
