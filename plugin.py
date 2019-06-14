@@ -1,6 +1,7 @@
 import re
 import json
 
+from django.contrib import messages
 from django.dispatch import receiver
 from django.http import HttpResponse
 from guardian.shortcuts import get_objects_for_user, assign_perm
@@ -24,44 +25,61 @@ def JsonResponse(dict):
     return HttpResponse(json.dumps(dict), content_type="application/json")
 
 
-under_pat = re.compile(r'_([a-z])')
-
-
-def underscore_to_camel(name):
-    return under_pat.sub(lambda x: x.group(1).upper(), name)
-
-
-def convert_json(d, convert):
-    new_d = {}
-    for k, v in d.items():
-        new_d[convert(k)] = convert_json(v, convert) if isinstance(v,
-                                                                   dict) else v
-    return new_d
+class TokenForm(forms.Form):
+    token = forms.CharField(
+        label='',
+        required=False,
+        max_length=1024,
+        widget=forms.TextInput(attrs={'placeholder': 'Token'}))
 
 
 class Plugin(PluginBase):
+    def main_menu(self):
+        return [Menu("Cesium ion", self.public_url(""), "fa-cesium fa fa-fw")]
+
+    def include_js_files(self):
+        return ["load_buttons.js"]
+
     def include_css_files(self):
         return ["font.css"]
 
-    def include_js_files(self):
-        return ["register_admin_button.js"]
-
     def build_jsx_components(self):
-        return ["admin.jsx"]
+        return ["App.jsx"]
+
+    @login_required
+    def home_view(self, request):
+        ds = self.get_user_data_store(request.user)
+
+        # if this is a POST request we need to process the form data
+        if request.method == 'POST':
+            form = TokenForm(request.POST)
+            if form.is_valid():
+                ds.set_string('token', form.cleaned_data['token'])
+                messages.success(request, 'Token updated.')
+
+        form = TokenForm(initial={'token': ds.get_string('token', default="")})
+
+        return render(request, self.template_path("app.html"), {
+            'title': 'Cesium ion',
+            'form': form
+        })
 
     def app_mount_points(self):
-        @login_required
-        def admin(request):
-            react_props = {
-                "is_staff": request.user.is_staff,
-            }
-            serialized = json.dumps(
-                convert_json(react_props, underscore_to_camel))
-            return render(request, self.template_path("admin.html"), {
-                "app_id": self.get_name(),
-                "react": serialized
-            })
+        def load_buttons_callback(request):
+            if request.user.is_authenticated:
+                ds = self.get_user_data_store(request.user)
+                token = ds.get_string('token')
+                if token == '':
+                    return False
+
+                return {'token': token}
+            else:
+                return False
 
         return [
-            MountPoint("admin$", admin),
+            MountPoint("$", self.home_view),
+            MountPoint(
+                'load_buttons.js$',
+                self.get_dynamic_script('load_buttons.js',
+                                        load_buttons_callback))
         ]
