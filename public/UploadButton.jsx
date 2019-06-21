@@ -1,32 +1,31 @@
 import React, { Component, Fragment } from "react";
 
-import UploadDialog from "./UploadDialog";
-
-function getCookie(name) {
-	const value = `; ${document.cookie}`;
-	const parts = value.split(`; ${name}=`);
-	if (parts.length == 2)
-		return parts
-			.pop()
-			.split(";")
-			.shift();
-}
+import UploadDialog from "./components/UploadDialog";
+import TaskContext from "./components/TaskContext";
+import TaskFetcher from "./components/TaskFetcher";
 
 export default class ShareButton extends Component {
 	state = {
 		showDialog: false
 	};
 
-	onClick = () =>
-		this.setState({
-			showDialog: true
-		});
+	onClick = () => this.setState({ showDialog: true });
+
+	onHide = () => this.setState({ showDialog: false });
 
 	render() {
 		const { showDialog } = this.state;
+		const { apiURL, task } = this.props;
+
+		const context = {
+			url: `${apiURL}/task`,
+			task: task
+		};
+
+		console.log(showDialog);
 
 		return (
-			<Fragment>
+			<TaskContext.Provider value={context}>
 				<button
 					className={"btn btn-sm btn-primary"}
 					onClick={this.onClick}
@@ -34,8 +33,18 @@ export default class ShareButton extends Component {
 					<i className={"fa fa-cesium"} />
 					<span> Upload to Cesium ion</span>
 				</button>
-				<UploadDialog show={showDialog} />
-			</Fragment>
+				<TaskFetcher method={"GET"} path={"share"}>
+					{({ data: { available, exported } = {}, loading }) => (
+						<UploadDialog
+							show={showDialog}
+							loading={loading}
+							availableAssets={available}
+							exportedAssets={exported}
+							onHide={this.onHide}
+						/>
+					)}
+				</TaskFetcher>
+			</TaskContext.Provider>
 		);
 	}
 }

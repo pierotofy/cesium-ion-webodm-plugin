@@ -38,10 +38,10 @@ class Plugin(PluginBase):
         return ["load_buttons.js"]
 
     def include_css_files(self):
-        return ["font.css"]
+        return ["font.css", "build/UploadButton.css"]
 
     def build_jsx_components(self):
-        return ["ShareButton.jsx"]
+        return ["UploadButton.jsx"]
 
     def as_view(self):
         @login_required
