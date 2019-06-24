@@ -6,6 +6,7 @@ from app.plugins.views import TaskView
 from app.plugins.worker import task
 from app.plugins import logger
 
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -26,7 +27,7 @@ class LoggerAdapter(logging.LoggerAdapter):
 
 
 ###                        ###
-#        TASK UTILS          #
+#         API UTILS          #
 ###                        ###
 def get_key_for(task_id, key, ds=None):
     if ds is None:
@@ -47,6 +48,7 @@ def get_task_info(task_id, default=None, ds=None):
         ds = GlobalDataStore(PROJECT_NAME)
     return ds.get_json(get_key_for(task_id, "info"), default)
 
+def request():
 
 ###                        ###
 #      MODEL CONFIG          #
@@ -69,7 +71,7 @@ FILE_TO_MODEL = {
 MODEL_TO_FILE = dict([reversed(i) for i in FILE_TO_MODEL.items()])
 
 ###                        ###
-#        TASK VIEWS          #
+#         API VIEWS          #
 ###                        ###
 class ShareTaskView(TaskView):
     def get(self, request, pk=None):
@@ -82,6 +84,11 @@ class ShareTaskView(TaskView):
             available_assets.append(MODEL_TO_FILE[file_name])
 
         return Response(output, status=status.HTTP_200_OK)
+
+
+class AvailableTerrain(APIView):
+    def get(self, request, format=None):
+
 
 
 ###                        ###
