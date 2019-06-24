@@ -1,7 +1,7 @@
 PluginsAPI.Dashboard.addTaskActionButton(
 	["${app_name}/build/UploadButton.js"],
 	function(args, UploadButton) {
-		console.log(args.task);
+		console.log("${api_url}");
 		return React.createElement(UploadButton, {
 			task: args.task,
 			token: "${token}",

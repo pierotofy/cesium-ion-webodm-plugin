@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .globals import PROJECT_NAME
+from .globals import PROJECT_NAME, ION_API_URL
 
 pluck = lambda dict, *args: (dict[arg] for arg in args)
 
@@ -48,7 +48,6 @@ def get_task_info(task_id, default=None, ds=None):
         ds = GlobalDataStore(PROJECT_NAME)
     return ds.get_json(get_key_for(task_id, "info"), default)
 
-def request():
 
 ###                        ###
 #      MODEL CONFIG          #
@@ -86,11 +85,6 @@ class ShareTaskView(TaskView):
         return Response(output, status=status.HTTP_200_OK)
 
 
-class AvailableTerrain(APIView):
-    def get(self, request, format=None):
-
-
-
 ###                        ###
 #       CELERY TASK(S)       #
 ###                        ###
@@ -119,7 +113,7 @@ def upload_to_ion(task_id, name, description, model_type, options):
 
         # Create Asset Request
         task_logger.info("Creating asset of type %s", model_type.value)
-        res = requests.post(f"{api_address}/v1/assets", json=data, headers=headers)
+        res = requests.post(f"{ION_API_URL}/v1/assets", json=data, headers=headers)
         res.raise_for_status()
 
         access_key, secret_key, token, endpoint, bucket, prefix = pluck(

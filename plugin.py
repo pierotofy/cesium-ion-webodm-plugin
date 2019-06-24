@@ -1,29 +1,11 @@
 import re
 import json
 
-from django import forms
-from django.contrib import messages
-from django.http import HttpResponse
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-
 from app.plugins import PluginBase, Menu, MountPoint, logger
 
 from .globals import PROJECT_NAME
-from .api import ShareTaskView
-
-
-def JsonResponse(dict):
-    return HttpResponse(json.dumps(dict), content_type="application/json")
-
-
-class TokenForm(forms.Form):
-    token = forms.CharField(
-        label="",
-        required=False,
-        max_length=1024,
-        widget=forms.TextInput(attrs={"placeholder": "Token"}),
-    )
+from .task_views import ShareTaskView
+from .app_views import HomeView, AvailableTerrainView
 
 
 class Plugin(PluginBase):
@@ -42,32 +24,6 @@ class Plugin(PluginBase):
 
     def build_jsx_components(self):
         return ["UploadButton.jsx"]
-
-    def as_view(self):
-        @login_required
-        def view(request):
-            ds = self.get_user_data_store(request.user)
-
-            # if this is a POST request we need to process the form data
-            if request.method == "POST":
-                form = TokenForm(request.POST)
-                if form.is_valid():
-                    token = form.cleaned_data["token"].strip()
-                    if len(token) > 0:
-                        messages.success(request, "Updated Cesium ion Token!")
-                    else:
-                        messages.info(request, "Reset Cesium ion Token")
-                    ds.set_string("token", token)
-
-            form = TokenForm(initial={"token": ds.get_string("token", default="")})
-
-            return render(
-                request,
-                self.template_path("app.html"),
-                {"title": "Cesium ion", "form": form},
-            )
-
-        return view
 
     def api_mount_points(self):
         return [MountPoint("task/(?P<pk>[^/.]+)/share", ShareTaskView.as_view())]
@@ -89,7 +45,8 @@ class Plugin(PluginBase):
                 return False
 
         return [
-            MountPoint("$", self.as_view()),
+            MountPoint("$", HomeView(self)),
+            MountPoint("terrains", AvailableTerrainView(self)),
             MountPoint(
                 "load_buttons.js$",
                 self.get_dynamic_script(
