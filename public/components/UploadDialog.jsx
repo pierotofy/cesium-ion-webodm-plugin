@@ -1,48 +1,12 @@
 import React, { Component, Fragment } from "react";
 import FormDialog from "webodm/components/FormDialog";
-import { Formik, Field } from "formik";
+import { Formik } from "formik";
 import * as Yup from "yup";
-import {
-	Row,
-	Col,
-	FormGroup,
-	ControlLabel,
-	FormControl,
-	HelpBlock,
-	FromControl
-} from "react-bootstrap";
+import { Row, Col } from "react-bootstrap";
 
+import BootstrapField from "./BootstrapField";
+import { ImplicitIonFetcher as IonFetcher } from "./Fetcher";
 import { AssetType, SourceType } from "../defaults";
-
-const BoostrapFieldComponent = ({
-	field,
-	form: { touched, errors },
-	label,
-	help,
-	showIcon = true,
-	...props
-}) => {
-	const isError = errors[field.name] && touched[field.name];
-	const errorMsg = errors[field.name];
-
-	return (
-		<FormGroup
-			controlId={field.name}
-			validationState={errors[field.name] == null ? null : "error"}
-			style={{ marginLeft: 0, marginRight: 0 }}
-		>
-			<ControlLabel>{label}</ControlLabel>
-			<FormControl {...field} {...props} />
-			{isError && <HelpBlock>{errorMsg}</HelpBlock>}
-			{help && !isError && <HelpBlock>{help}</HelpBlock>}
-			{isError && showIcon && <FormControl.Feedback />}
-		</FormGroup>
-	);
-};
-
-const BoostrapField = props => (
-	<Field component={BoostrapFieldComponent} {...props} />
-);
 
 export default class UploadDialog extends Component {
 	static AssetSourceType = {
@@ -74,46 +38,69 @@ export default class UploadDialog extends Component {
 	}
 
 	componentWillReceiveProps(nextProps) {
-		const { assetType } = nextProps;
+		const { assetType, show } = nextProps;
 		if (assetType !== this.props.assetType)
 			this.setState({
 				sourceType: UploadDialog.AssetSourceType[assetType]
 			});
 	}
 
+	handleError = msg => error => {
+		this.props.onHide("Uploader failed to load!");
+		console.error(error);
+	};
+
 	getSourceFields() {
 		switch (this.state.sourceType) {
 			case SourceType.RASTER_TERRAIN:
+				const loadOptions = ({ isLoading, isError, data }) => {
+					if (isLoading || isError)
+						return <option disabled>LOADING...</option>;
+					const userItems = data.items
+						.filter(item => item.type === "TERRAIN")
+						.map(item => (
+							<option key={item.id} value={item.id}>
+								{item.name}
+							</option>
+						));
+					return userItems;
+				};
+				const dynamicTerrainTypeComponent = (
+					<BootstrapField
+						name={"toMeters"}
+						label={"Height Unit: "}
+						componentClass={"select"}
+					>
+						<IonFetcher
+							path="assets"
+							onError={this.handleError(
+								"Failed to load terrain options!"
+							)}
+						>
+							{loadOptions}
+						</IonFetcher>
+					</BootstrapField>
+				);
+
 				return (
 					<Fragment>
 						<Row style={{ marginLeft: -15, marginRight: -15 }}>
 							<Col md={6} sm={12}>
-								<BoostrapField
-									name={"toMeters"}
-									label={"Height Unit: "}
-									componentClass={"select"}
-								>
-									<option value="MEAN_SEA_LEVEL">
-										Mean Sea Level (EGM96)
-									</option>
-									<option value="WGS84">
-										Ellipsoid (WGS84)
-									</option>
-								</BoostrapField>
+								{dynamicTerrainTypeComponent}
 							</Col>
 							<Col md={6} sm={12}>
-								<BoostrapField
+								<BootstrapField
 									name={"baseTerrainId"}
 									label={"Height Reference: "}
 									componentClass={"select"}
 								>
-									<option value="MEAN_SEA_LEVEL">
+									<option value={"MEAN_SEA_LEVEL"}>
 										Mean Sea Level (EGM96)
 									</option>
-									<option value="WGS84">
+									<option value={"WGS84"}>
 										Ellipsoid (WGS84)
 									</option>
-								</BoostrapField>
+								</BootstrapField>
 							</Col>
 						</Row>
 					</Fragment>
@@ -148,18 +135,18 @@ export default class UploadDialog extends Component {
 						{...this.props}
 					>
 						<form>
-							<BoostrapField
+							<BootstrapField
 								name={"name"}
 								label={"Name: "}
 								type={"text"}
 							/>
-							<BoostrapField
+							<BootstrapField
 								name={"description"}
 								label={"Description: "}
 								componentClass={"textarea"}
 								rows={"3"}
 							/>
-							<BoostrapField
+							<BootstrapField
 								name={"attribution"}
 								label={"Attribution: "}
 								type={"text"}

@@ -9,6 +9,7 @@ from app.plugins import logger
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import serializers
 
 from .globals import PROJECT_NAME, ION_API_URL
 
@@ -52,7 +53,7 @@ def get_task_info(task_id, default=None, ds=None):
 ###                        ###
 #      MODEL CONFIG          #
 ###                        ###
-class ModelType(str, Enum):
+class AssetType(str, Enum):
     ORTHOPHOTO = "ORTHOPHOTO"
     TERRAIN_MODEL = "TERRAIN_MODEL"
     SURFACE_MODEL = "SURFACE_MODEL"
@@ -60,14 +61,38 @@ class ModelType(str, Enum):
     TEXTURED_MODEL = "TEXTURED_MODEL"
 
 
-FILE_TO_MODEL = {
-    ModelType.ORTHOPHOTO: "orthophoto.tif",
-    ModelType.TERRAIN_MODEL: "dtm.tif",
-    ModelType.SURFACE_MODEL: "dsm.tif",
-    ModelType.POINTCLOUD: "georeferenced_model.laz",
-    ModelType.TEXTURED_MODEL: "textured_model.zip",
+class SourceType(str, Enum):
+    RASTER_IMAGERY = "RASTER_IMAGERY"
+    RASTER_TERRAIN = "RASTER_TERRAIN"
+    TERRAIN_DATABASE = "TERRAIN_DATABASE"
+    CITYGML = "CITYGML"
+    KML = "KML"
+    CAPTURE = "3D_CAPTURE"
+    MODEL = "3D_MODEL"
+
+
+class OutputType(str, Enum):
+    IMAGERY = "IMAGERY"
+    TILES = "3D_TILE"
+    TERRAIN = "TERRAIN"
+
+
+ASSET_TO_FILE = {
+    AssetType.ORTHOPHOTO: "orthophoto.tif",
+    AssetType.TERRAIN_MODEL: "dtm.tif",
+    AssetType.SURFACE_MODEL: "dsm.tif",
+    AssetType.POINTCLOUD: "georeferenced_model.laz",
+    AssetType.TEXTURED_MODEL: "textured_model.zip",
 }
-MODEL_TO_FILE = dict([reversed(i) for i in FILE_TO_MODEL.items()])
+FILE_TO_ASSET = dict([reversed(i) for i in ASSET_TO_FILE.items()])
+
+ASSET_TO_OUTPUT = {
+    AssetType.ORTHOPHOTO: OutputType.IMAGERY,
+    AssetType.TERRAIN_MODEL: OutputType.TERRAIN,
+    AssetType.SURFACE_MODEL: OutputType.TERRAIN,
+    AssetType.POINTCLOUD: OutputType.TILES,
+    AssetType.TEXTURED_MODEL: OutputType.TILES,
+}
 
 ###                        ###
 #         API VIEWS          #
@@ -78,18 +103,42 @@ class ShareTaskView(TaskView):
         available_assets = []
         output = {"available": available_assets, "exported": []}
         for file_name in task.available_assets:
-            if file_name not in MODEL_TO_FILE:
+            if file_name not in FILE_TO_ASSET:
                 continue
-            available_assets.append(MODEL_TO_FILE[file_name])
+            available_assets.append(FILE_TO_ASSET[file_name])
 
         return Response(output, status=status.HTTP_200_OK)
+
+    def post(self, request, pk=None):
+        task = self.get_and_check_task(request, pk)
+
+        serializer = JSONSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token, name, description, attribution = pluck(
+            serializer.validated_data, "token", "name", "description", "attribution"
+        )
+        task_path = task.get_asset_download_path()
+
+        upload_to_ion(task.id, token, name, description, attribution)
+
+
+class UploadSerializer(serializers.Serializer):
+    token = serializers.CharField(help_text="Cesium ion Token")
+    name = serializers.CharField(help_text="Title of the exported project for ion")
+    asset_type = serializer.CharField(choices=[])
+    description = serializers.CharField(
+        help_text="general overview for ion", required=False, default=""
+    )
+    attribution = serializers.CharField(
+        help_text="project creator for ion", required=False, default=""
+    )
 
 
 ###                        ###
 #       CELERY TASK(S)       #
 ###                        ###
 @task
-def upload_to_ion(task_id, name, description, model_type, options):
+def upload_to_ion(task_id, task_path, model_type, token, name, description):
     task_info = get_task_info(task_id)
     task_logger = LoggerAdapter(prefix="Task %s" % task_id, logger=logger)
 
@@ -102,17 +151,16 @@ def upload_to_ion(task_id, name, description, model_type, options):
         import boto3
 
     try:
-        headers = {"Authorization": f"Bearer {self.token}"}
+        headers = {"Authorization": f"Bearer {token}"}
         data = {
             "name": name,
             "description": description,
             "attribution": attribution,
             "type": model_type,
-            "options": options,
         }
 
         # Create Asset Request
-        task_logger.info("Creating asset of type %s", model_type.value)
+        task_logger.info(f"Creating asset of type {model_type}")
         res = requests.post(f"{ION_API_URL}/v1/assets", json=data, headers=headers)
         res.raise_for_status()
 
