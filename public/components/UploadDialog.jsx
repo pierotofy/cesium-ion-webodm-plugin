@@ -3,11 +3,13 @@ import React, { Component, Fragment } from "react";
 import FormDialog from "webodm/components/FormDialog";
 import { Formik } from "formik";
 import * as Yup from "yup";
-import { Row, Col } from "react-bootstrap";
+import { Row, Col, Modal, Button } from "react-bootstrap";
 
 import BootstrapField from "./BootstrapField";
+import FormikErrorFocus from "./FormikErrorFocus";
 import { ImplicitIonFetcher as IonFetcher } from "./Fetcher";
 import { AssetType, SourceType } from "../defaults";
+import "./UploadDialog.scss";
 
 export default class UploadDialog extends Component {
 	static AssetSourceType = {
@@ -20,8 +22,7 @@ export default class UploadDialog extends Component {
 
 	static defaultProps = {
 		show: true,
-		reset: () => {},
-		getFormData: () => {},
+		asset: null,
 		initialValues: {
 			name: "",
 			description: "",
@@ -29,30 +30,19 @@ export default class UploadDialog extends Component {
 		}
 	};
 
-	state = {
-		sourceType: null
-	};
-
-	constructor(props) {
-		super(props);
-		this.state.sourceType = UploadDialog.AssetSourceType[props.assetType];
-	}
-
-	componentWillReceiveProps(nextProps) {
-		const { assetType, show } = nextProps;
-		if (assetType !== this.props.assetType)
-			this.setState({
-				sourceType: UploadDialog.AssetSourceType[assetType]
-			});
-	}
-
 	handleError = msg => error => {
 		this.props.onHide("Uploader failed to load!");
 		console.error(error);
 	};
 
+	onSubmit = () => {
+		const { onSubmit, onHide } = this.props;
+		onSubmit();
+		onHide();
+	};
+
 	getSourceFields() {
-		switch (this.state.sourceType) {
+		switch (UploadDialog.AssetSourceType[this.props.asset]) {
 			case SourceType.RASTER_TERRAIN:
 				const loadOptions = ({ isLoading, isError, data }) => {
 					if (isLoading || isError)
@@ -160,7 +150,10 @@ export default class UploadDialog extends Component {
 	}
 
 	render() {
-		const { initialValues, ...options } = this.props;
+		const { initialValues, onHide, title, ...options } = this.props;
+
+		delete options["asset"];
+		delete options["onSubmit"];
 
 		const mergedInitialValues = {
 			...UploadDialog.defaultProps.initialValues,
@@ -168,41 +161,56 @@ export default class UploadDialog extends Component {
 		};
 
 		return (
-			<Formik
-				initialValues={mergedInitialValues}
-				enableReinitialize
-				validationSchema={this.getValidation()}
-			>
-				{({ handleSubmit = () => {} }) => (
-					<FormDialog
-						title={"Upload to Cesium Ion"}
-						saveLabel={"Upload"}
-						saveIcon={"fa fa-upload"}
-						saveAction={() => new Promise(handleSubmit)}
-						{...this.props}
-					>
+			<Modal className={"csm"} onHide={onHide} {...options}>
+				<Modal.Header closeButton>
+					<Modal.Title>
+						<i className={"fa fa-cesium"} /> {title}
+					</Modal.Title>
+				</Modal.Header>
+				<Formik
+					initialValues={mergedInitialValues}
+					onSubmit={this.onSubmit}
+					enableReinitialize
+					validationSchema={this.getValidation()}
+				>
+					{({ handleSubmit = () => {} }) => (
 						<form>
-							<BootstrapField
-								name={"name"}
-								label={"Name: "}
-								type={"text"}
-							/>
-							<BootstrapField
-								name={"description"}
-								label={"Description: "}
-								type={"textarea"}
-								rows={"3"}
-							/>
-							<BootstrapField
-								name={"attribution"}
-								label={"Attribution: "}
-								type={"text"}
-							/>
-							{this.getSourceFields()}
+							<Modal.Body>
+								<BootstrapField
+									name={"name"}
+									label={"Name: "}
+									type={"text"}
+								/>
+								<BootstrapField
+									name={"description"}
+									label={"Description: "}
+									type={"textarea"}
+									rows={"3"}
+								/>
+								<BootstrapField
+									name={"attribution"}
+									label={"Attribution: "}
+									type={"text"}
+								/>
+								{this.getSourceFields()}
+
+								<FormikErrorFocus />
+							</Modal.Body>
+
+							<Modal.Footer>
+								<Button onClick={onHide}>Close</Button>
+								<Button
+									bsStyle="primary"
+									onClick={handleSubmit}
+								>
+									<i className={"fa fa-upload"} />
+									Submit
+								</Button>
+							</Modal.Footer>
 						</form>
-					</FormDialog>
-				)}
-			</Formik>
+					)}
+				</Formik>
+			</Modal>
 		);
 	}
 }

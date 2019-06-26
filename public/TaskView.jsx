@@ -19,7 +19,7 @@ export default class TaskView extends Component {
 
 	onOpenAssetDropdown = asset => this.setState({ currentAsset: asset });
 
-	onHide = (error = "") => this.setState({ currentAsset: null, error });
+	onHide = () => this.setState({ currentAsset: null, error: "" });
 
 	onToggleDropdown = () =>
 		this.setState({ isDropdownOpen: !this.state.isDropdownOpen });
@@ -28,15 +28,8 @@ export default class TaskView extends Component {
 		const { task } = this.props;
 		const { currentAsset } = this.state;
 		const assetsStyle = IonAssetButton.defaultAssetProps;
-
-		if (currentAsset === null) return null;
-
-		const DialogTitle = (
-			<Fragment>
-				<i className={"fa fa-cesium"} />
-				{` Tile in Cesium ion ⁠— ${assetsStyle[currentAsset].name}`}
-			</Fragment>
-		);
+		const show = currentAsset !== null;
+		const assetName = show ? assetsStyle[currentAsset].name : "";
 
 		return (
 			<APIFetcher path={"projects"} params={{ id: task.project }}>
@@ -45,16 +38,18 @@ export default class TaskView extends Component {
 
 					if (!isLoading && !isError && data.results.length > 0) {
 						const project = data.results[0];
-						initialValues.name = `${project.name} | ${task.name} ⁠— ${assetsStyle[currentAsset].name}`;
+						initialValues.name = `${project.name} | ${task.name} ⁠— ${assetName}`;
 						initialValues.description = project.description;
 					}
 
 					return (
 						<UploadDialog
-							title={DialogTitle}
+							title={`Tile in Cesium ion — ${assetName}`}
 							initialValues={initialValues}
-							assetType={currentAsset}
+							show={currentAsset !== null}
+							asset={currentAsset}
 							onHide={this.onHide}
+							onSubmit={() => {}}
 						/>
 					);
 				}}
@@ -90,7 +85,7 @@ export default class TaskView extends Component {
 					)}
 				</TaskFetcher>
 
-				{currentAsset !== null && this.getDialog()}
+				{this.getDialog()}
 			</AppContext.Provider>
 		);
 	}
