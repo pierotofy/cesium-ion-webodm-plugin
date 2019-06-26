@@ -20,10 +20,10 @@ class Plugin(PluginBase):
         return ["load_buttons.js"]
 
     def include_css_files(self):
-        return ["font.css", "build/UploadButton.css"]
+        return ["font.css", "build/TaskView.css"]
 
     def build_jsx_components(self):
-        return ["UploadButton.jsx"]
+        return ["TaskView.jsx"]
 
     def api_mount_points(self):
         return [MountPoint("task/(?P<pk>[^/.]+)/share", ShareTaskView.as_view())]

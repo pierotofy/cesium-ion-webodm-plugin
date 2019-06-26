@@ -1,4 +1,5 @@
 import React, { Component, Fragment } from "react";
+
 import FormDialog from "webodm/components/FormDialog";
 import { Formik } from "formik";
 import * as Yup from "yup";
@@ -177,7 +178,7 @@ export default class UploadDialog extends Component {
 						title={"Upload to Cesium Ion"}
 						saveLabel={"Upload"}
 						saveIcon={"fa fa-upload"}
-						saveAction={handleSubmit}
+						saveAction={() => new Promise(handleSubmit)}
 						{...this.props}
 					>
 						<form>

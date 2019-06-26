@@ -10,7 +10,7 @@ module.exports = {
   mode: 'production',
   context: __dirname,
 
-  entry: {"UploadButton": ["./UploadButton.jsx"]},
+  entry: {"TaskView": ["./TaskView.jsx"]},
 
   output: {
       path: path.join(__dirname, './build'),
