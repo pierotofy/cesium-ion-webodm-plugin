@@ -1,7 +1,7 @@
 PluginsAPI.Dashboard.addTaskActionButton(
 	["${app_name}/build/UploadButton.js"],
 	function(args, UploadButton) {
-		console.log("${ion_url}");
+		console.log(args);
 		return React.createElement(UploadButton, {
 			task: args.task,
 			token: "${token}",

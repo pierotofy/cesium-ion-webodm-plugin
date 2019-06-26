@@ -4,6 +4,7 @@ import {
 	FormGroup,
 	ControlLabel,
 	FormControl,
+	Checkbox,
 	HelpBlock
 } from "react-bootstrap";
 
@@ -12,11 +13,19 @@ const BootstrapFieldComponent = ({
 	form: { touched, errors },
 	label,
 	help,
+	type = "",
 	showIcon = true,
 	...props
 }) => {
 	const isError = errors[field.name] && touched[field.name];
 	const errorMsg = errors[field.name];
+	let ControlComponent = FormControl;
+
+	const testType = type.toLowerCase();
+	if (testType === "checkbox") ControlComponent = Checkbox;
+	else if (testType === "textarea" || testType === "select")
+		props.componentClass = testType;
+	else props.type = type;
 
 	return (
 		<FormGroup
@@ -24,8 +33,8 @@ const BootstrapFieldComponent = ({
 			validationState={isError ? "error" : null}
 			style={{ marginLeft: 0, marginRight: 0 }}
 		>
-			<ControlLabel>{label}</ControlLabel>
-			<FormControl {...field} {...props} />
+			{label && <ControlLabel>{label}</ControlLabel>}
+			<ControlComponent {...field} {...props} />
 			{isError && <HelpBlock>{errorMsg}</HelpBlock>}
 			{help && !isError && <HelpBlock>{help}</HelpBlock>}
 			{isError && showIcon && <FormControl.Feedback />}

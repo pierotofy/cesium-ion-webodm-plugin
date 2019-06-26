@@ -15,6 +15,7 @@ export function getCookie(name) {
 
 export class Fetcher extends PureComponent {
 	static defaultProps = {
+		url: "",
 		path: "",
 		method: "GET",
 		onError: () => {}
@@ -28,9 +29,20 @@ export class Fetcher extends PureComponent {
 	cancelableFetch = null;
 
 	componentDidMount() {
-		const { url, path, onError, children, ...options } = this.props;
+		const { url, path, onError, children, params, ...options } = this.props;
 
-		this.cancelableFetch = makeCancelable(fetch(`${url}/${path}`, options));
+		let queryURL = `${url}/${path}`;
+		if (params !== undefined) {
+			const serializedParams = `?${Object.keys(params)
+				.map(key =>
+					[key, params[key]].map(encodeURIComponent).join("=")
+				)
+				.join("&")}`;
+			queryURL = queryURL.replace(/[\/\?]+$/, "");
+			queryURL += serializedParams;
+		}
+
+		this.cancelableFetch = makeCancelable(fetch(queryURL, options));
 		this.cancelableFetch.promise
 			.then(res => res.json())
 			.then(data => this.setState({ data, isLoading: false }))
@@ -72,6 +84,19 @@ const ImplicitFetcher = ({
 	</AppContext.Consumer>
 );
 
+const APIFetcher = props => (
+	<Fetcher
+		url={"/api"}
+		credentials={"same-origin"}
+		headers={{
+			"X-CSRFToken": getCookie("csrftoken"),
+			Accept: "application/json",
+			"Content-Type": "application/json"
+		}}
+		{...props}
+	/>
+);
+
 const ImplicitTaskFetcher = props => (
 	<ImplicitFetcher
 		getURL={({ apiURL, task }) => `/api${apiURL}/task/${task.id}`}
@@ -97,4 +122,4 @@ const ImplicitIonFetcher = props => (
 	/>
 );
 
-export { ImplicitTaskFetcher, ImplicitIonFetcher };
+export { APIFetcher, ImplicitTaskFetcher, ImplicitIonFetcher };

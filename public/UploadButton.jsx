@@ -6,7 +6,10 @@ import ErrorMessage from "webodm/components/ErrorMessage";
 import { AssetType, SourceType } from "./defaults";
 import UploadDialog from "./components/UploadDialog";
 import AppContext from "./components/AppContext";
-import { ImplicitTaskFetcher as TaskFetcher } from "./components/Fetcher";
+import {
+	ImplicitTaskFetcher as TaskFetcher,
+	APIFetcher
+} from "./components/Fetcher";
 
 const flattenProp = (key, obj) =>
 	Object.assign(...Object.entries(obj).map(([k, v]) => ({ [k]: v[key] })));
@@ -44,8 +47,6 @@ export default class ShareButton extends Component {
 	};
 
 	static defaultProps = {
-		shareTitle: "Upload to Cesium ion",
-		shareIcon: "fa-cesium",
 		assetNames: flattenProp("name", ShareButton.defaultAssetProps),
 		assetIcons: flattenProp("icon", ShareButton.defaultAssetProps)
 	};
@@ -62,6 +63,45 @@ export default class ShareButton extends Component {
 
 	onToggleDropdown = () =>
 		this.setState({ isDropdownOpen: !this.state.isDropdownOpen });
+
+	getDialog() {
+		const { assetNames, task } = this.props;
+		const { currentAsset } = this.state;
+
+		if (currentAsset === null) return;
+
+		const DialogTitle = (
+			<Fragment>
+				<i className={"fa fa-cesium"} />
+				{` Upload to Cesium ion ⁠— ${assetNames[currentAsset]}`}
+			</Fragment>
+		);
+
+		const getDialogWithDefaults = ({ isLoading, isError, data }) => {
+			const initialValues = {};
+
+			if (!isLoading && !isError && data.results.length > 0) {
+				const project = data.results[0];
+				initialValues.name = `${project.name} | ${task.name} ⁠— ${assetNames[currentAsset]}`;
+				initialValues.description = project.description;
+			}
+
+			return (
+				<UploadDialog
+					title={DialogTitle}
+					initialValues={initialValues}
+					assetType={currentAsset}
+					onHide={this.onHide}
+				/>
+			);
+		};
+
+		return (
+			<APIFetcher path={"projects"} params={{ id: task.project }}>
+				{getDialogWithDefaults}
+			</APIFetcher>
+		);
+	}
 
 	render() {
 		const { currentAsset } = this.state;
@@ -83,19 +123,6 @@ export default class ShareButton extends Component {
 			token: token
 		};
 
-		const dialog = (
-			<UploadDialog
-				title={
-					<Fragment>
-						<i className={`fa ${shareIcon}`} />
-						{` ${shareTitle} ⁠— ${assetNames[currentAsset]}     `}
-					</Fragment>
-				}
-				onHide={this.onHide}
-				assetType={currentAsset}
-			/>
-		);
-
 		return (
 			<AppContext.Provider value={context}>
 				<ErrorMessage bind={[this, "error"]} />
@@ -106,24 +133,28 @@ export default class ShareButton extends Component {
 					title={
 						<Fragment>
 							<i className={`fa ${shareIcon}`} />
-							{`  ${shareTitle}`}
+							{"   "} Upload to Cesium ion
 						</Fragment>
 					}
 				>
 					<TaskFetcher path={"share"}>
 						{({ data: { available = [] } = {} }) =>
-							available.map(asset => (
-								<UploadDropdownItem
-									key={asset}
-									title={assetNames[asset]}
-									icon={assetIcons[asset]}
-									onClick={this.handleClick(asset)}
-								/>
-							))
+							available
+								.sort((a, b) =>
+									assetNames[a].localeCompare(assetNames[b])
+								)
+								.map(asset => (
+									<UploadDropdownItem
+										key={asset}
+										title={assetNames[asset]}
+										icon={assetIcons[asset]}
+										onClick={this.handleClick(asset)}
+									/>
+								))
 						}
 					</TaskFetcher>
 				</DropdownButton>
-				{currentAsset !== null && dialog}
+				{currentAsset !== null && this.getDialog()}
 			</AppContext.Provider>
 		);
 	}

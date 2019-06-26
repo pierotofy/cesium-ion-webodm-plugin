@@ -63,13 +63,18 @@ export default class UploadDialog extends Component {
 								{item.name}
 							</option>
 						));
-					return userItems;
+					return [
+						<option key={"mean-sea-level"} value={""}>
+							Mean Sea Level
+						</option>,
+						...userItems
+					];
 				};
 				const dynamicTerrainTypeComponent = (
 					<BootstrapField
 						name={"toMeters"}
-						label={"Height Unit: "}
-						componentClass={"select"}
+						label={"Base Terrain: "}
+						type={"select"}
 					>
 						<IonFetcher
 							path="assets"
@@ -84,7 +89,13 @@ export default class UploadDialog extends Component {
 
 				return (
 					<Fragment>
-						<Row style={{ marginLeft: -15, marginRight: -15 }}>
+						<Row
+							style={{
+								marginLeft: -15,
+								marginRight: -15,
+								padding: 0
+							}}
+						>
 							<Col md={6} sm={12}>
 								{dynamicTerrainTypeComponent}
 							</Col>
@@ -92,7 +103,7 @@ export default class UploadDialog extends Component {
 								<BootstrapField
 									name={"baseTerrainId"}
 									label={"Height Reference: "}
-									componentClass={"select"}
+									type={"select"}
 								>
 									<option value={"MEAN_SEA_LEVEL"}>
 										Mean Sea Level (EGM96)
@@ -103,7 +114,36 @@ export default class UploadDialog extends Component {
 								</BootstrapField>
 							</Col>
 						</Row>
+						<BootstrapField
+							name={"waterMask"}
+							type={"checkbox"}
+							label={"Options"}
+							help={
+								"Treat elevation values at sea level as water. " +
+								"This will add a water mask to the terrain tileset. " +
+								"Typically, this value is only set to true when tiling a global tileset"
+							}
+						>
+							Use waster-mask
+						</BootstrapField>
 					</Fragment>
+				);
+			case SourceType.CAPTURE:
+				return (
+					<BootstrapField
+						name={"textureFormat"}
+						type={"checkbox"}
+						help={
+							"Will produce WebP images, which are typically 25-34% smaller than " +
+							"equivalent JPEG images which leads to faster streaming and reduced " +
+							"data usage. 3D Tiles produced with this option require a client " +
+							"that supports the glTF EXT_texture_webp extension, such as " +
+							"CesiumJS 1.54 or newer, and a browser that supports WebP, such as " +
+							"Chrome or Firefox 65 and newer."
+						}
+					>
+						Use WebP images
+					</BootstrapField>
 				);
 			default:
 				return null;
@@ -121,9 +161,15 @@ export default class UploadDialog extends Component {
 	render() {
 		const { initialValues, ...options } = this.props;
 
+		const mergedInitialValues = {
+			...UploadDialog.defaultProps.initialValues,
+			...initialValues
+		};
+
 		return (
 			<Formik
-				initialValues={initialValues}
+				initialValues={mergedInitialValues}
+				enableReinitialize
 				validationSchema={this.getValidation()}
 			>
 				{({ handleSubmit = () => {} }) => (
@@ -143,7 +189,7 @@ export default class UploadDialog extends Component {
 							<BootstrapField
 								name={"description"}
 								label={"Description: "}
-								componentClass={"textarea"}
+								type={"textarea"}
 								rows={"3"}
 							/>
 							<BootstrapField
