@@ -6,6 +6,8 @@ from app.plugins.views import TaskView
 from app.plugins.worker import task
 from app.plugins import logger
 
+from django.utils.translation import ugettext_lazy as _
+from rest_framework.fields import ChoiceField, CharField
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -69,6 +71,7 @@ class SourceType(str, Enum):
     KML = "KML"
     CAPTURE = "3D_CAPTURE"
     MODEL = "3D_MODEL"
+    POINTCLOUD = "POINT_CLOUD"
 
 
 class OutputType(str, Enum):
@@ -84,6 +87,7 @@ ASSET_TO_FILE = {
     AssetType.POINTCLOUD: "georeferenced_model.laz",
     AssetType.TEXTURED_MODEL: "textured_model.zip",
 }
+
 FILE_TO_ASSET = dict([reversed(i) for i in ASSET_TO_FILE.items()])
 
 ASSET_TO_OUTPUT = {
@@ -94,9 +98,45 @@ ASSET_TO_OUTPUT = {
     AssetType.TEXTURED_MODEL: OutputType.TILES,
 }
 
+ASSET_TO_SOURCE = {
+    AssetType.ORTHOPHOTO: SourceType.RASTER_TERRAIN,
+    AssetType.TERRAIN_MODEL: SourceType.RASTER_TERRAIN,
+    AssetType.SURFACE_MODEL: SourceType.RASTER_TERRAIN,
+    AssetType.POINTCLOUD: SourceType.POINTCLOUD,
+    AssetType.TEXTURED_MODEL: SourceType.CAPTURE,
+}
+
 ###                        ###
 #         API VIEWS          #
 ###                        ###
+class EnumField(ChoiceField):
+    default_error_messages = {"invalid": _("No matching enum type.")}
+
+    def __init__(self, **kwargs):
+        self.enum_type = kwargs.pop("enum_type")
+        choices = [enum_item.value for enum_item in self.enum_type]
+        self.choice_set = set(choices)
+        super(EnumField, self).__init__(choices, **kwargs)
+
+    def to_internal_value(self, data):
+        if data in self.choice_set:
+            return self.enum_type[data]
+        self.fail("invalid")
+
+    def to_representation(self, value):
+        if not value:
+            return None
+        return value.value
+
+
+class UploadSerializer(serializers.Serializer):
+    token = CharField(help_text="Cesium ion Token")
+    name = CharField(help_text="Title of the exported project for ion")
+    asset_type = EnumField(enum_type=AssetType)
+    description = CharField(help_text="general overview for ion", default="")
+    attribution = CharField(help_text="project creator for ion", default="")
+
+
 class ShareTaskView(TaskView):
     def get(self, request, pk=None):
         task = self.get_and_check_task(request, pk)
@@ -112,41 +152,38 @@ class ShareTaskView(TaskView):
     def post(self, request, pk=None):
         task = self.get_and_check_task(request, pk)
 
-        serializer = JSONSerializer(data=request.data)
+        serializer = UploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        token, name, description, attribution = pluck(
-            serializer.validated_data, "token", "name", "description", "attribution"
+
+        upload_info = pluck(
+            serializer.validated_data,
+            "token",
+            "asset_type",
+            "name",
+            "description",
+            "attribution",
         )
-        task_path = task.get_asset_download_path()
+        asset_path = task.get_asset_download_path(ASSET_TO_FILE[upload_info.asset_type])
 
-        upload_to_ion(task.id, token, name, description, attribution)
-
-
-class UploadSerializer(serializers.Serializer):
-    token = serializers.CharField(help_text="Cesium ion Token")
-    name = serializers.CharField(help_text="Title of the exported project for ion")
-    asset_type = serializer.CharField(choices=[])
-    description = serializers.CharField(
-        help_text="general overview for ion", required=False, default=""
-    )
-    attribution = serializers.CharField(
-        help_text="project creator for ion", required=False, default=""
-    )
+        upload_to_ion(task.id, *upload_info)
 
 
 ###                        ###
 #       CELERY TASK(S)       #
 ###                        ###
 @task
-def upload_to_ion(task_id, task_path, model_type, token, name, description):
+def upload_to_ion(
+    task_id, token, asset_type, asset_path, name, description="", attribution=""
+):
     task_info = get_task_info(task_id)
-    task_logger = LoggerAdapter(prefix="Task %s" % task_id, logger=logger)
+    task_logger = LoggerAdapter(prefix=f"Task {task_id}", logger=logger)
 
     try:
         import boto3
     except ImportError:
         import subprocess
 
+        task_logger.info(f"Manually installing boto3...")
         subprocess.call([sys.executable, "-m", "pip", "install", "boto3"])
         import boto3
 
@@ -164,7 +201,7 @@ def upload_to_ion(task_id, task_path, model_type, token, name, description):
         res = requests.post(f"{ION_API_URL}/v1/assets", json=data, headers=headers)
         res.raise_for_status()
 
-        access_key, secret_key, token, endpoint, bucket, prefix = pluck(
+        access_key, secret_key, token, endpoint, bucket, file_prefix, complete_data = pluck(
             res.json(),
             "accessKey",
             "secretAccessKey",
@@ -172,11 +209,12 @@ def upload_to_ion(task_id, task_path, model_type, token, name, description):
             "endpoint",
             "bucket",
             "prefix",
+            "onComplete",
         )
 
         # Upload
         task_logger.info("Upload complete")
-        key = path.join(prefix, "unknown.glb")
+        key = path.join(file_prefix, ASSET_TO_FILE[asset_type])
         boto3.client(
             "s3",
             endpoint_url=endpoint,
@@ -186,9 +224,7 @@ def upload_to_ion(task_id, task_path, model_type, token, name, description):
         ).upload_file(file_path, Bucket=bucket, Key=key)
 
         # On Complete Handler
-        method, url, fields = pluck(
-            self.session["onComplete"], "method", "url", "fields"
-        )
+        method, url, fields = pluck(complete_data, "method", "url", "fields")
         task_logger.info("Upload complete", task_id)
         res = requests.request(method, url=url, headers=headers, data=fields)
         res.raise_for_status()
