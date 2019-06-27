@@ -17,4 +17,8 @@ const makeCancelable = promise => {
     };
 };
 
-export default makeCancelable;
+export { makeCancelable };
+
+const fetchCancelable = (...args) => makeCancelable(fetch(...args));
+
+export default fetchCancelable;

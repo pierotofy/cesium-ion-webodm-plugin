@@ -1,17 +1,7 @@
 import React, { PureComponent } from "react";
 
 import AppContext from "./AppContext";
-import makeCancelable from "./makeCancelable";
-
-export function getCookie(name) {
-	const value = `; ${document.cookie}`;
-	const parts = value.split(`; ${name}=`);
-	if (parts.length == 2)
-		return parts
-			.pop()
-			.split(";")
-			.shift();
-}
+import { fetchCancelable, getCookie } from "../utils";
 
 export class Fetcher extends PureComponent {
 	static defaultProps = {
@@ -42,7 +32,7 @@ export class Fetcher extends PureComponent {
 			queryURL += serializedParams;
 		}
 
-		this.cancelableFetch = makeCancelable(fetch(queryURL, options));
+		this.cancelableFetch = fetchCancelable(queryURL, options);
 		this.cancelableFetch.promise
 			.then(res => res.json())
 			.then(data => this.setState({ data, isLoading: false }))

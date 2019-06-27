@@ -35,12 +35,6 @@ export default class UploadDialog extends Component {
 		console.error(error);
 	};
 
-	onSubmit = () => {
-		const { onSubmit, onHide } = this.props;
-		onSubmit();
-		onHide();
-	};
-
 	getSourceFields() {
 		switch (UploadDialog.AssetSourceType[this.props.asset]) {
 			case SourceType.RASTER_TERRAIN:
@@ -150,10 +144,15 @@ export default class UploadDialog extends Component {
 	}
 
 	render() {
-		const { initialValues, onHide, title, ...options } = this.props;
+		const {
+			initialValues,
+			onHide,
+			title,
+			onSubmit,
+			...options
+		} = this.props;
 
 		delete options["asset"];
-		delete options["onSubmit"];
 
 		const mergedInitialValues = {
 			...UploadDialog.defaultProps.initialValues,
@@ -169,7 +168,7 @@ export default class UploadDialog extends Component {
 				</Modal.Header>
 				<Formik
 					initialValues={mergedInitialValues}
-					onSubmit={this.onSubmit}
+					onSubmit={onSubmit}
 					enableReinitialize
 					validationSchema={this.getValidation()}
 				>

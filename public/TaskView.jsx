@@ -1,30 +1,64 @@
 import React, { Component, Fragment } from "react";
 
 import ErrorMessage from "webodm/components/ErrorMessage";
+import { Button } from "react-bootstrap";
 
 import IonAssetButton from "./components/IonAssetButton";
 import UploadDialog from "./components/UploadDialog";
+import TasksDialog from "./components/TasksDialog";
 import AppContext from "./components/AppContext";
 import {
 	ImplicitTaskFetcher as TaskFetcher,
 	APIFetcher
 } from "./components/Fetcher";
+import { fetchCancelable, getCookie } from "./utils";
 
 export default class TaskView extends Component {
 	state = {
 		error: "",
 		currentAsset: null,
-		isDropdownOpen: false
+		isTasksDialog: false
 	};
+
+	cancelableFetch = null;
 
 	onOpenAssetDropdown = asset => this.setState({ currentAsset: asset });
 
-	onHide = () => this.setState({ currentAsset: null, error: "" });
+	onHideUploadDialog = () => this.setState({ currentAsset: null, error: "" });
 
-	onToggleDropdown = () =>
-		this.setState({ isDropdownOpen: !this.state.isDropdownOpen });
+	onUploadAsset = data => {
+		const { task, token, apiURL } = this.props;
+		const { currentAsset } = this.state;
+		const payload = Object.assign({}, data);
 
-	getDialog() {
+		if (currentAsset === null) {
+			console.warning("Submissions on invalid asset");
+			return;
+		}
+
+		payload.token = token;
+		payload.asset_type = currentAsset;
+
+		this.cancelableFetch = fetchCancelable(
+			`/api${apiURL}/task/${task.id}/share`,
+			{
+				method: "POST",
+				credentials: "same-origin",
+				headers: {
+					"X-CSRFToken": getCookie("csrftoken"),
+					Accept: "application/json",
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify(payload)
+			}
+		).promise.finally(this.onHideUploadDialog);
+	};
+
+	showTaskDialog = () => this.setState({ isTasksDialog: true });
+
+	hideTaskDialog = () => this.setState({ isTasksDialog: false });
+
+	getUploadDialog() {
 		const { task } = this.props;
 		const { currentAsset } = this.state;
 		const assetsStyle = IonAssetButton.defaultAssetProps;
@@ -48,8 +82,8 @@ export default class TaskView extends Component {
 							initialValues={initialValues}
 							show={currentAsset !== null}
 							asset={currentAsset}
-							onHide={this.onHide}
-							onSubmit={() => {}}
+							onHide={this.onHideUploadDialog}
+							onSubmit={this.onUploadAsset}
 						/>
 					);
 				}}
@@ -57,35 +91,55 @@ export default class TaskView extends Component {
 		);
 	}
 
+	componentWillUnmount() {
+		if (this.cancelableFetch === null) return;
+		this.cancelableFetch.cancel();
+	}
+
 	render() {
-		const { currentAsset } = this.state;
+		const { isTasksDialog } = this.state;
 
 		return (
 			<AppContext.Provider value={this.props}>
 				<ErrorMessage bind={[this, "error"]} />
-				<TaskFetcher path={"share"}>
-					{({ isLoading, isError, data = {} }) => (
-						<div className={"ion-dropdowns"}>
-							<IonAssetButton
-								assets={data.available}
-								onSelect={this.onOpenAssetDropdown}
-							>
-								Tile in Cesium ion
-							</IonAssetButton>
-
-							{data.exported && data.exported.length > 0 && (
+				<div className={"ion-dropdowns"}>
+					<TaskFetcher path={"share"}>
+						{({ isLoading, isError, data = {} }) => (
+							<Fragment>
 								<IonAssetButton
-									assets={data.exported}
+									assets={data.available}
 									onSelect={this.onOpenAssetDropdown}
 								>
-									View in Cesium ion
+									Tile in Cesium ion
 								</IonAssetButton>
-							)}
-						</div>
-					)}
-				</TaskFetcher>
 
-				{this.getDialog()}
+								{data.exported && data.exported.length > 0 && (
+									<IonAssetButton
+										assets={data.exported}
+										onSelect={this.onOpenAssetDropdown}
+									>
+										View in Cesium ion
+									</IonAssetButton>
+								)}
+							</Fragment>
+						)}
+					</TaskFetcher>
+					<Button
+						className={"ion-btn"}
+						bsStyle={"primary"}
+						bsSize={"small"}
+						onClick={this.showTaskDialog}
+					>
+						<i className={"fa fa-cesium"} />
+						View ion Tasks
+					</Button>
+				</div>
+
+				{this.getUploadDialog()}
+				<TasksDialog
+					show={isTasksDialog}
+					onHide={this.hideTaskDialog}
+				/>
 			</AppContext.Provider>
 		);
 	}

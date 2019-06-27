@@ -1,9 +1,11 @@
-import logging
+import sys
 import requests
+from os import path
 from enum import Enum
 
 from app.plugins.views import TaskView
 from app.plugins.worker import task
+from app.plugins.data_store import GlobalDataStore
 from app.plugins import logger
 
 from django.utils.translation import ugettext_lazy as _
@@ -15,18 +17,7 @@ from rest_framework import serializers
 
 from .globals import PROJECT_NAME, ION_API_URL
 
-pluck = lambda dict, *args: (dict[arg] for arg in args)
-
-###                        ###
-#          LOGGING          #
-###                        ###
-class LoggerAdapter(logging.LoggerAdapter):
-    def __init__(self, prefix, logger):
-        super().__init__(logger, {})
-        self.prefix = prefix
-
-    def process(self, msg, kwargs):
-        return "[%s] %s" % (self.prefix, msg), kwargs
+pluck = lambda dic, *keys: [dic[k] if k in dic else None for k in keys]
 
 
 ###                        ###
@@ -38,18 +29,22 @@ def get_key_for(task_id, key, ds=None):
     return "task_{}_{}".format(str(task_id), key)
 
 
-def set_task_info(task_id, json, ds=None):
+def set_asset_info(task_id, asset_type, json, ds=None):
     if ds is None:
         ds = GlobalDataStore(PROJECT_NAME)
-    return ds.set_json(get_key_for(task_id, "info"), json)
+    return ds.set_json(get_key_for(task_id, asset_type.value), json)
 
 
-def get_task_info(task_id, default=None, ds=None):
+def get_asset_info(task_id, asset_type, default=None, ds=None):
     if default is None:
-        default = {"sharing": False, "shared": False, "error": ""}
+        default = {
+            "upload": {"progress": 0, "active": False},
+            "process": {"progress": 0, "active": False},
+            "error": "",
+        }
     if ds is None:
         ds = GlobalDataStore(PROJECT_NAME)
-    return ds.get_json(get_key_for(task_id, "info"), default)
+    return ds.get_json(get_key_for(task_id, asset_type.value), default)
 
 
 ###                        ###
@@ -76,7 +71,7 @@ class SourceType(str, Enum):
 
 class OutputType(str, Enum):
     IMAGERY = "IMAGERY"
-    TILES = "3D_TILE"
+    TILES = "3DTILES"
     TERRAIN = "TERRAIN"
 
 
@@ -99,7 +94,7 @@ ASSET_TO_OUTPUT = {
 }
 
 ASSET_TO_SOURCE = {
-    AssetType.ORTHOPHOTO: SourceType.RASTER_TERRAIN,
+    AssetType.ORTHOPHOTO: SourceType.RASTER_IMAGERY,
     AssetType.TERRAIN_MODEL: SourceType.RASTER_TERRAIN,
     AssetType.SURFACE_MODEL: SourceType.RASTER_TERRAIN,
     AssetType.POINTCLOUD: SourceType.POINTCLOUD,
@@ -116,7 +111,7 @@ class EnumField(ChoiceField):
         self.enum_type = kwargs.pop("enum_type")
         choices = [enum_item.value for enum_item in self.enum_type]
         self.choice_set = set(choices)
-        super(EnumField, self).__init__(choices, **kwargs)
+        super().__init__(choices, **kwargs)
 
     def to_internal_value(self, data):
         if data in self.choice_set:
@@ -133,8 +128,18 @@ class UploadSerializer(serializers.Serializer):
     token = CharField(help_text="Cesium ion Token")
     name = CharField(help_text="Title of the exported project for ion")
     asset_type = EnumField(enum_type=AssetType)
-    description = CharField(help_text="general overview for ion", default="")
-    attribution = CharField(help_text="project creator for ion", default="")
+    description = CharField(
+        help_text="general overview for ion",
+        default="",
+        required=False,
+        allow_blank=True,
+    )
+    attribution = CharField(
+        help_text="project creator for ion",
+        default="",
+        required=False,
+        allow_blank=True,
+    )
 
 
 class ShareTaskView(TaskView):
@@ -155,7 +160,7 @@ class ShareTaskView(TaskView):
         serializer = UploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        upload_info = pluck(
+        token, asset_type, name, description, attribution = pluck(
             serializer.validated_data,
             "token",
             "asset_type",
@@ -163,27 +168,56 @@ class ShareTaskView(TaskView):
             "description",
             "attribution",
         )
-        asset_path = task.get_asset_download_path(ASSET_TO_FILE[upload_info.asset_type])
+        asset_path = task.get_asset_download_path(ASSET_TO_FILE[asset_type])
 
-        upload_to_ion(task.id, *upload_info)
+        upload_to_ion.delay(
+            task.id, token, asset_type, asset_path, name, description, attribution
+        )
+        return Response({"status": True}, status=status.HTTP_200_OK)
 
 
 ###                        ###
 #       CELERY TASK(S)       #
 ###                        ###
+class TaskUploadProgress(object):
+    def __init__(self, file_path, task_id, asset_type):
+        self._task_id = task_id
+        self._asset_type = asset_type
+
+        self._uploaded_bytes = 0
+        self._total_bytes = float(path.getsize(file_path))
+        self._asset_info = get_asset_info(task_id, asset_type)
+
+    def __call__(self, total_bytes):
+        self._uploaded_bytes += total_bytes
+        progress = self._uploaded_bytes / self._total_bytes
+        if progress == 1:
+            progress = 1
+            self._asset_info["upload"]["active"] = True
+            self._asset_info["process"]["active"] = True
+        else:
+            self._asset_info["upload"]["progress"] = False
+
+        if logger is not None:
+            print(f"Upload progress {progress * 100}%")
+        self._asset_info["upload"]["progress"] = progress
+
+        set_asset_info(self._task_id, self._asset_type, self._asset_info)
+
+
 @task
 def upload_to_ion(
     task_id, token, asset_type, asset_path, name, description="", attribution=""
 ):
-    task_info = get_task_info(task_id)
-    task_logger = LoggerAdapter(prefix=f"Task {task_id}", logger=logger)
+    asset_type = AssetType[asset_type]
+    asset_info = get_asset_info(task_id, asset_type)
 
     try:
         import boto3
     except ImportError:
         import subprocess
 
-        task_logger.info(f"Manually installing boto3...")
+        print(f"Manually installing boto3...")
         subprocess.call([sys.executable, "-m", "pip", "install", "boto3"])
         import boto3
 
@@ -193,27 +227,33 @@ def upload_to_ion(
             "name": name,
             "description": description,
             "attribution": attribution,
-            "type": model_type,
+            "type": ASSET_TO_OUTPUT[asset_type],
+            "options": {"sourceType": ASSET_TO_SOURCE[asset_type]},
         }
+        import json
+
+        print(json.dumps(data, indent=4, sort_keys=True))
 
         # Create Asset Request
-        task_logger.info(f"Creating asset of type {model_type}")
-        res = requests.post(f"{ION_API_URL}/v1/assets", json=data, headers=headers)
+        print(f"Creating asset of type {asset_type}")
+        res = requests.post(f"{ION_API_URL}/assets", json=data, headers=headers)
+        print(json.dumps(data, indent=4, sort_keys=True))
         res.raise_for_status()
+        upload_meta, complete_meta = pluck(res.json(), "uploadLocation", "onComplete")
 
-        access_key, secret_key, token, endpoint, bucket, file_prefix, complete_data = pluck(
-            res.json(),
+        access_key, secret_key, token, endpoint, bucket, file_prefix = pluck(
+            upload_meta,
             "accessKey",
             "secretAccessKey",
             "sessionToken",
             "endpoint",
             "bucket",
             "prefix",
-            "onComplete",
         )
 
         # Upload
-        task_logger.info("Upload complete")
+        print("Upload complete")
+        progress_cb = TaskUploadProgress(asset_path, task_id, asset_type, asset_logger)
         key = path.join(file_prefix, ASSET_TO_FILE[asset_type])
         boto3.client(
             "s3",
@@ -221,15 +261,15 @@ def upload_to_ion(
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             aws_session_token=token,
-        ).upload_file(file_path, Bucket=bucket, Key=key)
+        ).upload_file(asset_path, Bucket=bucket, Key=key, Callback=progress_cb)
 
         # On Complete Handler
-        method, url, fields = pluck(complete_data, "method", "url", "fields")
-        task_logger.info("Upload complete", task_id)
+        method, url, fields = pluck(complete_meta, "method", "url", "fields")
+        print("Upload complete")
         res = requests.request(method, url=url, headers=headers, data=fields)
         res.raise_for_status()
     except requests.exceptions.RequestException as e:
-        task_info["error"] = str(e)
-        task_logger.error(e)
+        asset_info["error"] = str(e)
+        print(e)
 
-    set_task_info(task_id, task_info)
+    set_asset_info(task_id, asset_type, asset_info)
