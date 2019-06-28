@@ -46,7 +46,7 @@ export default class TaskDialog extends Component {
 		const taskItems = tasks.map(({ type: asset, upload, process }) => {
 			let progress = 0;
 			let task = "Error";
-			let style = "primary";
+			let style = "info";
 
 			if (upload.active) {
 				progress = upload.progress;

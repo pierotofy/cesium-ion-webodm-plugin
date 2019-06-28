@@ -66,9 +66,20 @@ export default class TaskView extends Component {
 	onTasksRefreshed = ({ items = [] }) => {
 		if (items.length <= 0) {
 			this.hideTaskDialog();
+			this.refreshAssets();
 			return;
 		}
 		setTimeout(this.refreshTasks, 5000);
+	};
+
+	handleAssetSelect = data => asset => {
+		const idMap = data.items
+			.filter(item => item.isExported)
+			.reduce((accum, item) => {
+				accum[item.type] = item.id;
+				return accum;
+			}, {});
+		window.open(`https://cesium.com/ion/assets/${idMap[asset]}`);
 	};
 
 	getUploadDialog() {
@@ -119,25 +130,39 @@ export default class TaskView extends Component {
 						path={"share"}
 						onBindRefresh={method => (this.refreshAssets = method)}
 					>
-						{({ isLoading, isError, data = {} }) => (
-							<Fragment>
-								<IonAssetButton
-									assets={data.available}
-									onSelect={this.onOpenAssetDropdown}
-								>
-									Tile in Cesium ion
-								</IonAssetButton>
+						{({ isLoading, isError, data = { items: [] } }) => {
+							const available = data.items
+								.filter(item => !item.isExported)
+								.map(item => item.type);
 
-								{data.exported && data.exported.length > 0 && (
-									<IonAssetButton
-										assets={data.exported}
-										onSelect={this.onOpenAssetDropdown}
-									>
-										View in Cesium ion
-									</IonAssetButton>
-								)}
-							</Fragment>
-						)}
+							const exported = data.items
+								.filter(item => item.isExported)
+								.map(item => item.type);
+
+							return (
+								<Fragment>
+									{available.length > 0 && (
+										<IonAssetButton
+											assets={available}
+											onSelect={this.onOpenAssetDropdown}
+										>
+											Tile in Cesium ion
+										</IonAssetButton>
+									)}
+
+									{exported.length > 0 && (
+										<IonAssetButton
+											assets={exported}
+											onSelect={this.handleAssetSelect(
+												data
+											)}
+										>
+											View in Cesium ion
+										</IonAssetButton>
+									)}
+								</Fragment>
+							);
+						}}
 					</TaskFetcher>
 
 					{this.getUploadDialog()}

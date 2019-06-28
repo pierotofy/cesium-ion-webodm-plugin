@@ -66,7 +66,7 @@ export class Fetcher extends PureComponent {
 
 	componentWillUnmount() {
 		this.props.onBindRefresh(null);
-		if (this.cancelableFetch !== null) return;
+		if (this.cancelableFetch === null) return;
 		this.cancelableFetch.cancel();
 		this.cancelableFetch = null;
 	}
