@@ -11,6 +11,7 @@ import {
 	ImplicitTaskFetcher as TaskFetcher,
 	APIFetcher
 } from "./components/Fetcher";
+import { AssetStyles } from "./defaults";
 import { fetchCancelable, getCookie } from "./utils";
 
 export default class TaskView extends Component {
@@ -21,6 +22,8 @@ export default class TaskView extends Component {
 	};
 
 	cancelableFetch = null;
+	refreshTasks = null;
+	refreshAssets = null;
 
 	onOpenAssetDropdown = asset => this.setState({ currentAsset: asset });
 
@@ -51,19 +54,28 @@ export default class TaskView extends Component {
 				},
 				body: JSON.stringify(payload)
 			}
-		).promise.finally(this.onHideUploadDialog);
+		)
+			.promise.then(this.refreshTasks)
+			.finally(this.onHideUploadDialog);
 	};
 
 	showTaskDialog = () => this.setState({ isTasksDialog: true });
 
 	hideTaskDialog = () => this.setState({ isTasksDialog: false });
 
+	onTasksRefreshed = ({ items = [] }) => {
+		if (items.length <= 0) {
+			this.hideTaskDialog();
+			return;
+		}
+		setTimeout(this.refreshTasks, 5000);
+	};
+
 	getUploadDialog() {
 		const { task } = this.props;
 		const { currentAsset } = this.state;
-		const assetsStyle = IonAssetButton.defaultAssetProps;
 		const show = currentAsset !== null;
-		const assetName = show ? assetsStyle[currentAsset].name : "";
+		const assetName = show ? AssetStyles[currentAsset].name : "";
 
 		return (
 			<APIFetcher path={"projects"} params={{ id: task.project }}>
@@ -97,13 +109,16 @@ export default class TaskView extends Component {
 	}
 
 	render() {
-		const { isTasksDialog } = this.state;
+		const { isTasksDialog, isRefreshTask } = this.state;
 
 		return (
 			<AppContext.Provider value={this.props}>
 				<ErrorMessage bind={[this, "error"]} />
 				<div className={"ion-dropdowns"}>
-					<TaskFetcher path={"share"}>
+					<TaskFetcher
+						path={"share"}
+						onBindRefresh={method => (this.refreshAssets = method)}
+					>
 						{({ isLoading, isError, data = {} }) => (
 							<Fragment>
 								<IonAssetButton
@@ -124,22 +139,45 @@ export default class TaskView extends Component {
 							</Fragment>
 						)}
 					</TaskFetcher>
-					<Button
-						className={"ion-btn"}
-						bsStyle={"primary"}
-						bsSize={"small"}
-						onClick={this.showTaskDialog}
-					>
-						<i className={"fa fa-cesium"} />
-						View ion Tasks
-					</Button>
-				</div>
 
-				{this.getUploadDialog()}
-				<TasksDialog
-					show={isTasksDialog}
-					onHide={this.hideTaskDialog}
-				/>
+					{this.getUploadDialog()}
+
+					<TaskFetcher
+						path={"status"}
+						onBindRefresh={method => (this.refreshTasks = method)}
+						onLoad={this.onTasksRefreshed}
+						onError={() =>
+							this.setState({ error: "Failed to load tasks!" })
+						}
+					>
+						{({ isLoading, isError, data }) => {
+							if (isLoading || isError) return null;
+							const isTasksButton =
+								data.items && data.items.length > 0;
+
+							return (
+								<Fragment>
+									{isTasksButton && (
+										<Button
+											className={"ion-btn"}
+											bsStyle={"primary"}
+											bsSize={"small"}
+											onClick={this.showTaskDialog}
+										>
+											<i className={"fa fa-cesium"} />
+											View ion Tasks
+										</Button>
+									)}
+									<TasksDialog
+										show={isTasksDialog}
+										onHide={this.hideTaskDialog}
+										tasks={data.items}
+									/>
+								</Fragment>
+							);
+						}}
+					</TaskFetcher>
+				</div>
 			</AppContext.Provider>
 		);
 	}

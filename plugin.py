@@ -4,7 +4,7 @@ import json
 from app.plugins import PluginBase, Menu, MountPoint, logger
 
 from .globals import PROJECT_NAME
-from .api_views import ShareTaskView
+from .api_views import ShareTaskView, StatusTaskView
 from .app_views import HomeView, LoadButtonView
 
 
@@ -26,7 +26,10 @@ class Plugin(PluginBase):
         return ["TaskView.jsx"]
 
     def api_mount_points(self):
-        return [MountPoint("task/(?P<pk>[^/.]+)/share", ShareTaskView.as_view())]
+        return [
+            MountPoint("task/(?P<pk>[^/.]+)/share", ShareTaskView.as_view()),
+            MountPoint("task/(?P<pk>[^/.]+)/status", StatusTaskView.as_view()),
+        ]
 
     def app_mount_points(self):
         return [

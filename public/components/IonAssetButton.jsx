@@ -2,48 +2,15 @@ import React, { PureComponent, Fragment } from "react";
 
 import { DropdownButton, MenuItem } from "react-bootstrap";
 
-import { AssetType } from "../defaults";
+import IonAssetLabel from "./IonAssetLabel";
+import { AssetStyles } from "../defaults";
+
 import "./IonAssetButton.scss";
 
-const flattenProp = (key, obj) =>
-	Object.assign(...Object.entries(obj).map(([k, v]) => ({ [k]: v[key] })));
-
-const UploadDropdownItem = ({ icon, title, onClick = () => {} }) => (
-	<MenuItem tag={"a"} onClick={onClick}>
-		<i className={`fa ${icon}`} />
-		{"  "}
-		{title}
-	</MenuItem>
-);
-
 export default class IonAssetButton extends PureComponent {
-	static defaultAssetProps = {
-		[AssetType.ORTHOPHOTO]: {
-			name: "Orthophoto",
-			icon: "fa-map-o"
-		},
-		[AssetType.TERRAIN_MODEL]: {
-			name: "Terrain Model",
-			icon: "fa-area-chart"
-		},
-		[AssetType.SURFACE_MODEL]: {
-			name: "Surface Model",
-			icon: "fa-table"
-		},
-		[AssetType.POINTCLOUD]: {
-			name: "Pointcloud",
-			icon: "fa-cube"
-		},
-		[AssetType.TEXTURED_MODEL]: {
-			name: "Texture Model",
-			icon: "fa-connectdevelop"
-		}
-	};
-
 	static defaultProps = {
-		assetNames: flattenProp("name", IonAssetButton.defaultAssetProps),
-		assetIcons: flattenProp("icon", IonAssetButton.defaultAssetProps),
 		assets: [],
+		assetComponent: IonAssetLabel,
 		onSelect: () => {}
 	};
 
@@ -51,22 +18,24 @@ export default class IonAssetButton extends PureComponent {
 
 	render() {
 		const {
-			assetNames,
-			assetIcons,
 			assets,
 			onSelect,
-			children
+			children,
+			assetComponent: AssetComponent
 		} = this.props;
 
 		const menuItems = assets
-			.sort((a, b) => assetNames[a].localeCompare(assetNames[b]))
+			.sort((a, b) =>
+				AssetStyles[a].name.localeCompare(AssetStyles[b].name)
+			)
 			.map(asset => (
-				<UploadDropdownItem
+				<MenuItem
 					key={asset}
-					title={assetNames[asset]}
-					icon={assetIcons[asset]}
+					tag={"a"}
 					onClick={this.handleClick(asset)}
-				/>
+				>
+					<AssetComponent asset={asset} showIcon={true} />
+				</MenuItem>
 			));
 
 		const title = (

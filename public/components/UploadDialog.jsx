@@ -160,7 +160,7 @@ export default class UploadDialog extends Component {
 		};
 
 		return (
-			<Modal className={"csm"} onHide={onHide} {...options}>
+			<Modal className={"ion-upload"} onHide={onHide} {...options}>
 				<Modal.Header closeButton>
 					<Modal.Title>
 						<i className={"fa fa-cesium"} /> {title}

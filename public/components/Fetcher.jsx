@@ -8,7 +8,9 @@ export class Fetcher extends PureComponent {
 		url: "",
 		path: "",
 		method: "GET",
-		onError: () => {}
+		onBindRefresh: () => {},
+		onError: () => {},
+		onLoad: () => {}
 	};
 
 	state = {
@@ -18,8 +20,17 @@ export class Fetcher extends PureComponent {
 
 	cancelableFetch = null;
 
-	componentDidMount() {
-		const { url, path, onError, children, params, ...options } = this.props;
+	fetch = () => {
+		const {
+			url,
+			path,
+			onError,
+			onLoad,
+			refresh,
+			children,
+			params,
+			...options
+		} = this.props;
 
 		let queryURL = `${url}/${path}`;
 		if (params !== undefined) {
@@ -35,16 +46,27 @@ export class Fetcher extends PureComponent {
 		this.cancelableFetch = fetchCancelable(queryURL, options);
 		this.cancelableFetch.promise
 			.then(res => res.json())
-			.then(data => this.setState({ data, isLoading: false }))
+			.then(data => {
+				this.setState({ data, isLoading: false });
+				onLoad(data);
+				this.cancelableFetch = null;
+			})
 			.catch(out => {
 				if (out.isCanceled) return;
-				onError(out);
 				this.setState({ error: out, isLoading: false, isError: true });
+				onError(out);
+				this.cancelableFetch = null;
 			});
+	};
+
+	componentDidMount() {
+		this.fetch();
+		this.props.onBindRefresh(this.fetch);
 	}
 
 	componentWillUnmount() {
-		if (this.cancelableFetch === null) return;
+		this.props.onBindRefresh(null);
+		if (this.cancelableFetch !== null) return;
 		this.cancelableFetch.cancel();
 		this.cancelableFetch = null;
 	}
