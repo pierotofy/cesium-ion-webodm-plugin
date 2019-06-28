@@ -90,8 +90,8 @@ class OutputType(str, Enum):
 
 ASSET_TO_FILE = {
     AssetType.ORTHOPHOTO: "orthophoto.tif",
-    AssetType.TERRAIN_MODEL: "dtm.tif",
-    AssetType.SURFACE_MODEL: "dsm.tif",
+    # AssetType.TERRAIN_MODEL: "dtm.tif",
+    # AssetType.SURFACE_MODEL: "dsm.tif",
     AssetType.POINTCLOUD: "georeferenced_model.laz",
     AssetType.TEXTURED_MODEL: "textured_model.zip",
 }
@@ -159,14 +159,22 @@ class ShareTaskView(TaskView):
     def get(self, request, pk=None):
         task = self.get_and_check_task(request, pk)
 
-        available_assets = []
-        output = {"available": available_assets, "exported": []}
+        assets = []
         for file_name in task.available_assets:
             if file_name not in FILE_TO_ASSET:
                 continue
-            available_assets.append(FILE_TO_ASSET[file_name])
+            asset_type = FILE_TO_ASSET[file_name]
 
-        return Response(output, status=status.HTTP_200_OK)
+            asset_info = get_asset_info(task.id, asset_type)
+            ion_id = asset_info["id"]
+            is_exported = not (
+                asset_info["id"] is None
+                or asset_info["upload"]["active"]
+                or asset_info["process"]["active"]
+            )
+            assets.append({"type": asset_type, "isExported": is_exported, "id": ion_id})
+
+        return Response({"items": assets}, status=status.HTTP_200_OK)
 
     def post(self, request, pk=None):
         task = self.get_and_check_task(request, pk)
@@ -246,9 +254,6 @@ class TaskUploadProgress(object):
         set_asset_info(self._task_id, self._asset_type, self._asset_info)
 
 
-import json
-
-
 @task
 def upload_to_ion(
     task_id, token, asset_type, asset_path, name, description="", attribution=""
@@ -280,7 +285,6 @@ def upload_to_ion(
         asset_logger.info(f"Creating asset of type {asset_type}")
         res = requests.post(f"{ION_API_URL}/assets", json=data, headers=headers)
         res.raise_for_status()
-        asset_logger.info(json.dumps(res.json(), indent=4, sort_keys=True))
         ion_info, upload_meta, on_complete = pluck(
             res.json(), "assetMetadata", "uploadLocation", "onComplete"
         )
