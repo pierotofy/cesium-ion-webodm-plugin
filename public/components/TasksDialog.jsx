@@ -7,13 +7,20 @@ import {
 	Button,
 	ListGroup,
 	ListGroupItem,
-	ProgressBar
+	ProgressBar,
+	Glyphicon
 } from "react-bootstrap";
 
 import IonAssetLabel from "./IonAssetLabel";
 import "./TaskDialog.scss";
 
-const TaskStatusItem = ({ asset, progress, task, bsStyle = "primary" }) => (
+const TaskStatusItem = ({
+	asset,
+	progress,
+	task,
+	active = true,
+	bsStyle = "primary"
+}) => (
 	<ListGroupItem>
 		<Row>
 			<Col xs={6}>
@@ -25,7 +32,7 @@ const TaskStatusItem = ({ asset, progress, task, bsStyle = "primary" }) => (
 				<p className={"pull-right"}>Status: {task}</p>
 			</Col>
 		</Row>
-		<ProgressBar active now={progress} bsStyle={bsStyle} />
+		<ProgressBar active={active} now={progress} bsStyle={bsStyle} />
 	</ListGroupItem>
 );
 
@@ -37,36 +44,51 @@ export default class TaskDialog extends Component {
 
 	render() {
 		const {
-			onHide,
 			tasks,
 			taskComponent: TaskComponent,
+			onClearFailed,
+			onHide,
 			...options
 		} = this.props;
 
-		const taskItems = tasks.map(({ type: asset, upload, process }) => {
-			let progress = 0;
-			let task = "Error";
-			let style = "info";
+		let hasErrors = false;
 
-			if (upload.active) {
-				progress = upload.progress;
-				task = "Uploading";
-			} else if (process.active) {
-				progress = process.progress;
-				task = "Processing";
-				style = "success";
+		const taskItems = tasks.map(
+			({ type: asset, upload, process, error }) => {
+				let task,
+					style,
+					active = true,
+					progress = 0;
+
+				if (upload.active) {
+					progress = upload.progress;
+					task = "Uploading";
+					style = "info";
+				} else if (process.active) {
+					progress = process.progress;
+					task = "Processing";
+					style = "success";
+				}
+
+				if (error.length > 0) {
+					task = "Error";
+					style = "danger";
+					active = false;
+					console.error(error);
+					hasErrors = true;
+				}
+
+				return (
+					<TaskStatusItem
+						key={asset}
+						asset={asset}
+						progress={progress * 100}
+						task={task}
+						bsStyle={style}
+					/>
+				);
 			}
-
-			return (
-				<TaskStatusItem
-					key={asset}
-					asset={asset}
-					progress={progress * 100}
-					task={task}
-					bsStyle={style}
-				/>
-			);
-		});
+		);
 
 		return (
 			<Modal className={"ion-tasks"} onHide={onHide} {...options}>
@@ -77,6 +99,21 @@ export default class TaskDialog extends Component {
 				</Modal.Header>
 				<Modal.Body>
 					<ListGroup>{taskItems}</ListGroup>
+
+					{hasErrors && (
+						<Button
+							className={"center-block"}
+							bsSize={"small"}
+							bsStyle={"danger"}
+							onClick={onClearFailed}
+						>
+							<Glyphicon
+								style={{ marginRight: "0.5em" }}
+								glyph={"trash"}
+							/>
+							Remove Failed Tasks
+						</Button>
+					)}
 				</Modal.Body>
 
 				<Modal.Footer>

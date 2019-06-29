@@ -1,4 +1,4 @@
-import { Formik, Field } from "formik";
+import { Formik, Field, getIn } from "formik";
 
 import {
 	FormGroup,
@@ -17,8 +17,8 @@ const BootstrapFieldComponent = ({
 	showIcon = true,
 	...props
 }) => {
-	const isError = errors[field.name] && touched[field.name];
-	const errorMsg = errors[field.name];
+	const isError = getIn(errors, field.name) && getIn(touched, field.name);
+	const errorMsg = getIn(errors, field.name);
 	let ControlComponent = FormControl;
 
 	const testType = type.toLowerCase();

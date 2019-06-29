@@ -26,13 +26,39 @@ export default class UploadDialog extends Component {
 		initialValues: {
 			name: "",
 			description: "",
-			attribution: ""
+			attribution: "",
+			options: {
+				baseTerrainId: "",
+				waterMask: false,
+				textureFormat: false,
+				heightReference: "WGS84"
+			}
 		}
 	};
 
 	handleError = msg => error => {
 		this.props.onHide("Uploader failed to load!");
 		console.error(error);
+	};
+
+	onSubmit = values => {
+		const { asset, onSubmit } = this.props;
+		values = Object.assign({}, values);
+		const { options = {} } = values;
+
+		switch (UploadDialog.AssetSourceType[asset]) {
+			case SourceType.RASTER_TERRAIN:
+				if (options.baseTerrainId === "")
+					delete options["baseTerrainId"];
+				else options.baseTerrainId = parseInt(options.baseTerrainId);
+				options.toMeters = 1;
+				break;
+			case SourceType.CAPTURE:
+				options.textureFormat = options.textureFormat ? "WEBP" : "AUTO";
+				break;
+		}
+
+		onSubmit(values);
 	};
 
 	getSourceFields() {
@@ -57,7 +83,7 @@ export default class UploadDialog extends Component {
 				};
 				const dynamicTerrainTypeComponent = (
 					<BootstrapField
-						name={"toMeters"}
+						name={"options.baseTerrainId"}
 						label={"Base Terrain: "}
 						type={"select"}
 					>
@@ -86,7 +112,7 @@ export default class UploadDialog extends Component {
 							</Col>
 							<Col md={6} sm={12}>
 								<BootstrapField
-									name={"baseTerrainId"}
+									name={"options.heightReference"}
 									label={"Height Reference: "}
 									type={"select"}
 								>
@@ -100,7 +126,7 @@ export default class UploadDialog extends Component {
 							</Col>
 						</Row>
 						<BootstrapField
-							name={"waterMask"}
+							name={"options.waterMask"}
 							type={"checkbox"}
 							label={"Options"}
 							help={
@@ -116,7 +142,7 @@ export default class UploadDialog extends Component {
 			case SourceType.CAPTURE:
 				return (
 					<BootstrapField
-						name={"textureFormat"}
+						name={"options.textureFormat"}
 						type={"checkbox"}
 						help={
 							"Will produce WebP images, which are typically 25-34% smaller than " +
@@ -136,23 +162,34 @@ export default class UploadDialog extends Component {
 	}
 
 	getValidation() {
-		const schema = {
-			name: Yup.string().required("A name is required!")
-		};
+		const schema = {};
 
-		return Yup.object().shape(schema);
+		switch (UploadDialog.AssetSourceType[this.props.asset]) {
+			case SourceType.RASTER_TERRAIN:
+				schema.heightReference = Yup.string().required(
+					"Please select a height reference!"
+				);
+				schema.baseTerrainId = Yup.string();
+				schema.waterMask = Yup.boolean();
+				break;
+			case SourceType.CAPTURE:
+				schema.textureFormat = Yup.boolean();
+				break;
+		}
+
+		return Yup.object().shape({
+			name: Yup.string().required("A name is required!"),
+			options: Yup.object()
+				.shape(schema)
+				.default({})
+		});
 	}
 
 	render() {
-		const {
-			initialValues,
-			onHide,
-			title,
-			onSubmit,
-			...options
-		} = this.props;
+		const { initialValues, onHide, title, ...options } = this.props;
 
 		delete options["asset"];
+		delete options["onSubmit"];
 
 		const mergedInitialValues = {
 			...UploadDialog.defaultProps.initialValues,
@@ -168,7 +205,7 @@ export default class UploadDialog extends Component {
 				</Modal.Header>
 				<Formik
 					initialValues={mergedInitialValues}
-					onSubmit={onSubmit}
+					onSubmit={this.onSubmit}
 					enableReinitialize
 					validationSchema={this.getValidation()}
 				>

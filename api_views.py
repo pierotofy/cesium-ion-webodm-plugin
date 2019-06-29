@@ -11,7 +11,7 @@ from app.plugins.data_store import GlobalDataStore
 from app.plugins import logger
 
 from django.utils.translation import ugettext_lazy as _
-from rest_framework.fields import ChoiceField, CharField
+from rest_framework.fields import ChoiceField, CharField, JSONField
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -39,6 +39,12 @@ class LoggerAdapter(logging.LoggerAdapter):
 ###                        ###
 def get_key_for(task_id, key):
     return "task_{}_{}".format(str(task_id), key)
+
+
+def del_asset_info(task_id, asset_type, ds=None):
+    if ds is None:
+        ds = GlobalDataStore(PROJECT_NAME)
+    ds.del_key(get_key_for(task_id, asset_type.value))
 
 
 def set_asset_info(task_id, asset_type, json, ds=None):
@@ -90,8 +96,8 @@ class OutputType(str, Enum):
 
 ASSET_TO_FILE = {
     AssetType.ORTHOPHOTO: "orthophoto.tif",
-    # AssetType.TERRAIN_MODEL: "dtm.tif",
-    # AssetType.SURFACE_MODEL: "dsm.tif",
+    AssetType.TERRAIN_MODEL: "dtm.tif",
+    AssetType.SURFACE_MODEL: "dsm.tif",
     AssetType.POINTCLOUD: "georeferenced_model.laz",
     AssetType.TEXTURED_MODEL: "textured_model.zip",
 }
@@ -138,21 +144,16 @@ class EnumField(ChoiceField):
 
 
 class UploadSerializer(serializers.Serializer):
-    token = CharField(help_text="Cesium ion Token")
-    name = CharField(help_text="Title of the exported project for ion")
+    token = CharField()
+    name = CharField()
     asset_type = EnumField(enum_type=AssetType)
-    description = CharField(
-        help_text="general overview for ion",
-        default="",
-        required=False,
-        allow_blank=True,
-    )
-    attribution = CharField(
-        help_text="project creator for ion",
-        default="",
-        required=False,
-        allow_blank=True,
-    )
+    description = CharField(default="", required=False, allow_blank=True)
+    attribution = CharField(default="", required=False, allow_blank=True)
+    options = JSONField(default={}, required=False)
+
+
+class UpdateIonAssets(serializers.Serializer):
+    token = CharField()
 
 
 class ShareTaskView(TaskView):
@@ -167,10 +168,11 @@ class ShareTaskView(TaskView):
 
             asset_info = get_asset_info(task.id, asset_type)
             ion_id = asset_info["id"]
-            is_exported = not (
-                asset_info["id"] is None
-                or asset_info["upload"]["active"]
-                or asset_info["process"]["active"]
+            is_exported = (
+                asset_info["id"] is not None
+                and not asset_info["upload"]["active"]
+                and not asset_info["process"]["active"]
+                and len(asset_info["error"]) <= 0
             )
             assets.append({"type": asset_type, "isExported": is_exported, "id": ion_id})
 
@@ -181,22 +183,31 @@ class ShareTaskView(TaskView):
         serializer = UploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        token, asset_type, name, description, attribution = pluck(
+        token, asset_type, name, description, attribution, options = pluck(
             serializer.validated_data,
             "token",
             "asset_type",
             "name",
             "description",
             "attribution",
+            "options",
         )
         asset_path = task.get_asset_download_path(ASSET_TO_FILE[asset_type])
 
+        del_asset_info(task.id, asset_type)
         asset_info = get_asset_info(task.id, asset_type)
         asset_info["upload"]["active"] = True
         set_asset_info(task.id, asset_type, asset_info)
 
         upload_to_ion.delay(
-            task.id, token, asset_type, asset_path, name, description, attribution
+            task.id,
+            token,
+            asset_type,
+            asset_path,
+            name,
+            description,
+            attribution,
+            options,
         )
         return Response(status=status.HTTP_200_OK)
 
@@ -219,6 +230,39 @@ class StatusTaskView(TaskView):
             active.append(asset_info)
 
         return Response({"items": active}, status=status.HTTP_200_OK)
+
+    def post(self, request, pk=None):
+        serializer = UpdateIonAssets(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        task = self.get_and_check_task(request, pk)
+        token = serializer.validated_data["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        is_updated = False
+        for asset_type in AssetType:
+            asset_info = get_asset_info(task.id, asset_type)
+            ion_id = asset_info["id"]
+            if ion_id is None:
+                continue
+            res = requests.get(f"{ION_API_URL}/assets/{ion_id}", headers=headers)
+            if res.status_code != 200:
+                del_asset_info(task.id, asset_type)
+                is_updated = True
+
+        return Response({"updated": is_updated}, status=status.HTTP_200_OK)
+
+
+class ClearErrorsTaskView(TaskView):
+    def post(self, request, pk=None):
+        task = self.get_and_check_task(request, pk)
+        for asset_type in AssetType:
+            asset_info = get_asset_info(task.id, asset_type)
+            if len(asset_info["error"]) <= 0:
+                continue
+            del_asset_info(task.id, asset_type)
+
+        return Response({"complete": True}, status=status.HTTP_200_OK)
 
 
 ###                        ###
@@ -256,7 +300,14 @@ class TaskUploadProgress(object):
 
 @task
 def upload_to_ion(
-    task_id, token, asset_type, asset_path, name, description="", attribution=""
+    task_id,
+    token,
+    asset_type,
+    asset_path,
+    name,
+    description="",
+    attribution="",
+    options={},
 ):
     asset_logger = LoggerAdapter(prefix=f"Task {task_id} {asset_type}", logger=logger)
     asset_type = AssetType[asset_type]
@@ -278,8 +329,12 @@ def upload_to_ion(
             "description": description,
             "attribution": attribution,
             "type": ASSET_TO_OUTPUT[asset_type],
-            "options": {"sourceType": ASSET_TO_SOURCE[asset_type]},
+            "options": {**options, "sourceType": ASSET_TO_SOURCE[asset_type]},
         }
+        import json
+
+        asset_logger.info(json.dumps(data, indent=4))
+        asset_logger.info(json.dumps(options, indent=4))
 
         # Create Asset Request
         asset_logger.info(f"Creating asset of type {asset_type}")
@@ -315,16 +370,16 @@ def upload_to_ion(
         set_asset_info(task_id, asset_type, asset_info)
 
         # On Complete Handler
-        method, url, fields = pluck(on_complete, "method", "url", "fields")
         asset_logger.info("Upload complete")
+        asset_info["process"]["active"] = True
+        set_asset_info(task_id, asset_type, asset_info)
+        method, url, fields = pluck(on_complete, "method", "url", "fields")
         res = requests.request(method, url=url, headers=headers, data=fields)
         res.raise_for_status()
 
         # Processing Status Refresh
         asset_logger.info("Starting processing")
         refresh = True
-        asset_info["process"]["active"] = True
-        set_asset_info(task_id, asset_type, asset_info)
         while refresh:
             res = requests.get(f"{ION_API_URL}/assets/{ion_id}", headers=headers)
             res.raise_for_status()

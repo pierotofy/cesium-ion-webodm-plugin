@@ -22,12 +22,17 @@ export default class TaskView extends Component {
 	};
 
 	cancelableFetch = null;
+	timeoutHandler = null;
 	refreshTasks = null;
 	refreshAssets = null;
 
-	onOpenAssetDropdown = asset => this.setState({ currentAsset: asset });
+	onOpenUploadDialog = asset => this.setState({ currentAsset: asset });
 
 	onHideUploadDialog = () => this.setState({ currentAsset: null, error: "" });
+
+	showTaskDialog = () => this.setState({ isTasksDialog: true });
+
+	hideTaskDialog = () => this.setState({ isTasksDialog: false });
 
 	onUploadAsset = data => {
 		const { task, token, apiURL } = this.props;
@@ -59,17 +64,36 @@ export default class TaskView extends Component {
 			.finally(this.onHideUploadDialog);
 	};
 
-	showTaskDialog = () => this.setState({ isTasksDialog: true });
+	onClearFailedTasks = () => {
+		const { task, apiURL } = this.props;
 
-	hideTaskDialog = () => this.setState({ isTasksDialog: false });
+		this.cancelableFetch = fetchCancelable(
+			`/api${apiURL}/task/${task.id}/clear`,
+			{
+				method: "POST",
+				credentials: "same-origin",
+				headers: {
+					"X-CSRFToken": getCookie("csrftoken")
+				}
+			}
+		);
+
+		this.cancelableFetch.promise.then(this.refreshTasks);
+	};
 
 	onTasksRefreshed = ({ items = [] }) => {
+		if (!items.every(item => item.error.length <= 0)) return;
 		if (items.length <= 0) {
 			this.hideTaskDialog();
 			this.refreshAssets();
 			return;
 		}
-		setTimeout(this.refreshTasks, 5000);
+		this.timeoutHandler = setTimeout(this.refreshTasks, 5000);
+	};
+
+	onCleanStatus = ({ data: { updated = false } }) => {
+		if (!updated || this.refreshAssets == null) return;
+		this.refreshAssets();
 	};
 
 	handleAssetSelect = data => asset => {
@@ -82,45 +106,30 @@ export default class TaskView extends Component {
 		window.open(`https://cesium.com/ion/assets/${idMap[asset]}`);
 	};
 
-	getUploadDialog() {
-		const { task } = this.props;
-		const { currentAsset } = this.state;
-		const show = currentAsset !== null;
-		const assetName = show ? AssetStyles[currentAsset].name : "";
-
-		return (
-			<APIFetcher path={"projects"} params={{ id: task.project }}>
-				{({ isLoading, isError, data }) => {
-					const initialValues = {};
-
-					if (!isLoading && !isError && data.results.length > 0) {
-						const project = data.results[0];
-						initialValues.name = `${project.name} | ${task.name} ⁠— ${assetName}`;
-						initialValues.description = project.description;
-					}
-
-					return (
-						<UploadDialog
-							title={`Tile in Cesium ion — ${assetName}`}
-							initialValues={initialValues}
-							show={currentAsset !== null}
-							asset={currentAsset}
-							onHide={this.onHideUploadDialog}
-							onSubmit={this.onUploadAsset}
-						/>
-					);
-				}}
-			</APIFetcher>
-		);
-	}
+	handleError = msg => error => {
+		console.error(error);
+		this.setState({ error: msg });
+	};
 
 	componentWillUnmount() {
-		if (this.cancelableFetch === null) return;
-		this.cancelableFetch.cancel();
+		if (this.timeoutHandler !== null) {
+			clearTimeout(this.timeoutHandler);
+			this.timeoutHandler = null;
+		}
+		if (this.cancelableFetch !== null) {
+			this.cancelableFetch.cancel();
+			this.cancelableFetch = null;
+		}
+
+		this.refreshAssets = null;
+		this.refreshTasks = null;
 	}
 
 	render() {
-		const { isTasksDialog, isRefreshTask } = this.state;
+		const { task, token } = this.props;
+		const { isTasksDialog, isRefreshTask, currentAsset } = this.state;
+		const isUploadDialog = currentAsset !== null;
+		const assetName = isUploadDialog ? AssetStyles[currentAsset].name : "";
 
 		return (
 			<AppContext.Provider value={this.props}>
@@ -144,7 +153,7 @@ export default class TaskView extends Component {
 									{available.length > 0 && (
 										<IonAssetButton
 											assets={available}
-											onSelect={this.onOpenAssetDropdown}
+											onSelect={this.onOpenUploadDialog}
 										>
 											Tile in Cesium ion
 										</IonAssetButton>
@@ -165,15 +174,11 @@ export default class TaskView extends Component {
 						}}
 					</TaskFetcher>
 
-					{this.getUploadDialog()}
-
 					<TaskFetcher
 						path={"status"}
 						onBindRefresh={method => (this.refreshTasks = method)}
 						onLoad={this.onTasksRefreshed}
-						onError={() =>
-							this.setState({ error: "Failed to load tasks!" })
-						}
+						onError={this.handleError("Failed to load tasks!")}
 					>
 						{({ isLoading, isError, data }) => {
 							if (isLoading || isError) return null;
@@ -195,14 +200,44 @@ export default class TaskView extends Component {
 									)}
 									<TasksDialog
 										show={isTasksDialog}
-										onHide={this.hideTaskDialog}
 										tasks={data.items}
+										onHide={this.hideTaskDialog}
+										onClearFailed={this.onClearFailedTasks}
 									/>
 								</Fragment>
 							);
 						}}
 					</TaskFetcher>
 				</div>
+
+				<APIFetcher path={"projects"} params={{ id: task.project }}>
+					{({ isLoading, isError, data }) => {
+						const initialValues = {};
+
+						if (!isLoading && !isError && data.results.length > 0) {
+							const project = data.results[0];
+							initialValues.name = `${project.name} | ${task.name} ⁠— ${assetName}`;
+							initialValues.description = project.description;
+						}
+
+						return (
+							<UploadDialog
+								title={`Tile in Cesium ion — ${assetName}`}
+								initialValues={initialValues}
+								show={isUploadDialog}
+								asset={currentAsset}
+								onHide={this.onHideUploadDialog}
+								onSubmit={this.onUploadAsset}
+							/>
+						);
+					}}
+				</APIFetcher>
+				<TaskFetcher
+					method={"POST"}
+					path={"status"}
+					body={JSON.stringify({ token })}
+					onLoad={this.onCleanStatus}
+				/>
 			</AppContext.Provider>
 		);
 	}

@@ -73,6 +73,7 @@ export class Fetcher extends PureComponent {
 
 	render() {
 		const { children } = this.props;
+		if (children == null) return null;
 		if (typeof children !== "function")
 			return React.cloneElement(children, this.state);
 		else return children(this.state);
