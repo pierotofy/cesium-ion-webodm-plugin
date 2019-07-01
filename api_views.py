@@ -8,8 +8,9 @@ from enum import Enum
 from app.plugins.views import TaskView
 from app.plugins.worker import task
 from app.plugins.data_store import GlobalDataStore
-from app.plugins import logger
+from app.plugins import logger, signals as plugin_signals
 
+from django.dispatch import receiver
 from django.utils.translation import ugettext_lazy as _
 from rest_framework.fields import ChoiceField, CharField, JSONField
 from rest_framework.views import APIView
@@ -119,6 +120,18 @@ ASSET_TO_SOURCE = {
     AssetType.POINTCLOUD: SourceType.POINTCLOUD,
     AssetType.TEXTURED_MODEL: SourceType.CAPTURE,
 }
+
+###                        ###
+#         RECIEVERS          #
+###                        ###
+@receiver(plugin_signals.task_removed, dispatch_uid="oam_on_task_removed")
+@receiver(plugin_signals.task_completed, dispatch_uid="oam_on_task_completed")
+def oam_cleanup(sender, task_id, **kwargs):
+    # When a task is removed, simply remove clutter
+    # When a task is re-processed, make sure we can re-share it if we shared a task previously
+    for asset_type in AssetType:
+        del_asset_info(task_id, asset_type)
+
 
 ###                        ###
 #         API VIEWS          #
