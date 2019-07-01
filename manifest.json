@@ -2,7 +2,7 @@
 	"name": "Cesium ion",
 	"webodmMinVersion": "0.6.0",
 	"description": "Upload and tile models with Cesium ion.",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"author": "Analytical Graphics, Inc.",
 	"email": "hello@cesium.com",
 	"repository": "",
