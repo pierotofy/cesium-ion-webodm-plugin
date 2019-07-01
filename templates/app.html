@@ -45,17 +45,21 @@
     <ol>
       <li>
         Generate a token at
-        <a href="https://cesium.com/ion/tokens" target="_blank"> cesium.com/ion/tokens </a>
-        with <b>all permissions.</b>
+        <a href="" target="_blank"> cesium.com/ion/tokens </a>
+        with <b>all permissions:</b>
+        <i>assets:list, assets:read, assets:write, geocode.</i>
       </li>
       <li>Copy and paste the token into the form below.</li>
     </ol>
   {% else %}
-    <p><b>You are all set!</b> To share a task, select it from the <a href="/dashboard/">dashboard</a> and press the <b>Upload to ion</b> button.</p>
-    <p><a class="btn btn-sm btn-default" href="https://cesium.com/ion" target="_blank"><i class="fa fa-external-link"></i> Go To Cesium Ion</a></p>
+    <p><b>You are all set!</b> To share a task, select it from the <a href="/dashboard/">dashboard</a> and press the <b>Tile in Cesium ion</b> button.</p>
+    <p>
+      <a class="btn btn-sm btn-primary" href="/dashboard" target="_blank"><i class="fa fa-external-link"></i> Go To Dashboard</a>
+      <a class="btn btn-sm btn-default" href="https://cesium.com/ion" target="_blank"><i class="fa fa-cesium"></i> Open Cesium Ion</a>
+    </p>
   {% endif %}
   <form action="" method="post" class="oam-form oam-token-form">
-    <h4>Token Settings</h4>
+    <h5><b>Token Settings</b></h5>
     {% csrf_token %}
     {% include "app/plugins/templates/form.html" %}
     <button type="submit" class="btn btn-primary"><i class="fa fa-save fa-fw"></i> Set Token</i></button>
