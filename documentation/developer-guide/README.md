@@ -38,4 +38,8 @@ Follow these steps to run the addon directly from source so that your changes wi
 
 1. WebODM provides open datasets which can be used as a testbench for the add-on. You will have to create an account in order to access the data. Download datasets [here](https://demo.webodm.org/dashboard/).
 
-1. 
+1. To use the dataset click on a **task**, then in the **download assets** dropdown, select all. This should download a zip on to your machine.
+
+1. In your instance of WebODM, create a project, click import in the upper-right hand corner, and selet the zip we just downloaded from the demo.
+
+1. After the import completes and a website reload all Cesium ion functions should be available for testing.
