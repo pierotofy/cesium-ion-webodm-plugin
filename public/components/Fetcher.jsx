@@ -44,8 +44,11 @@ export class Fetcher extends PureComponent {
 		}
 
 		this.cancelableFetch = fetchCancelable(queryURL, options);
-		this.cancelableFetch.promise
-			.then(res => res.json())
+		return this.cancelableFetch.promise
+			.then(res => {
+				if (res.status !== 200) throw new Error(res.status);
+				return res.json();
+			})
 			.then(data => {
 				this.setState({ data, isLoading: false });
 				onLoad(data);

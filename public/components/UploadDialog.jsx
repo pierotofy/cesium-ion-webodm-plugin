@@ -30,14 +30,13 @@ export default class UploadDialog extends Component {
 			options: {
 				baseTerrainId: "",
 				waterMask: false,
-				textureFormat: false,
-				heightReference: "WGS84"
+				textureFormat: false
 			}
 		}
 	};
 
 	handleError = msg => error => {
-		this.props.onHide("Uploader failed to load!");
+		this.props.onError(msg);
 		console.error(error);
 	};
 
@@ -52,6 +51,7 @@ export default class UploadDialog extends Component {
 					delete options["baseTerrainId"];
 				else options.baseTerrainId = parseInt(options.baseTerrainId);
 				options.toMeters = 1;
+				options.heightReference = "WGS84";
 				break;
 			case SourceType.CAPTURE:
 				options.textureFormat = options.textureFormat ? "WEBP" : "AUTO";
@@ -81,50 +81,24 @@ export default class UploadDialog extends Component {
 						...userItems
 					];
 				};
-				const dynamicTerrainTypeComponent = (
-					<BootstrapField
-						name={"options.baseTerrainId"}
-						label={"Base Terrain: "}
-						type={"select"}
-					>
-						<IonFetcher
-							path="assets"
-							onError={this.handleError(
-								"Failed to load terrain options!"
-							)}
-						>
-							{loadOptions}
-						</IonFetcher>
-					</BootstrapField>
-				);
 
 				return (
 					<Fragment>
-						<Row
-							style={{
-								marginLeft: -15,
-								marginRight: -15,
-								padding: 0
-							}}
+						<BootstrapField
+							name={"options.baseTerrainId"}
+							label={"Base Terrain: "}
+							type={"select"}
 						>
-							<Col md={6} sm={12}>
-								{dynamicTerrainTypeComponent}
-							</Col>
-							<Col md={6} sm={12}>
-								<BootstrapField
-									name={"options.heightReference"}
-									label={"Height Reference: "}
-									type={"select"}
-								>
-									<option value={"MEAN_SEA_LEVEL"}>
-										Mean Sea Level (EGM96)
-									</option>
-									<option value={"WGS84"}>
-										Ellipsoid (WGS84)
-									</option>
-								</BootstrapField>
-							</Col>
-						</Row>
+							<IonFetcher
+								path="assets"
+								onError={this.handleError(
+									"Failed to load terrain options. " +
+										"Please check your token!"
+								)}
+							>
+								{loadOptions}
+							</IonFetcher>
+						</BootstrapField>
 						<BootstrapField
 							name={"options.waterMask"}
 							type={"checkbox"}
@@ -166,9 +140,6 @@ export default class UploadDialog extends Component {
 
 		switch (UploadDialog.AssetSourceType[this.props.asset]) {
 			case SourceType.RASTER_TERRAIN:
-				schema.heightReference = Yup.string().required(
-					"Please select a height reference!"
-				);
 				schema.baseTerrainId = Yup.string();
 				schema.waterMask = Yup.boolean();
 				break;

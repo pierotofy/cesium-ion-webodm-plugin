@@ -23,12 +23,11 @@ export default class TaskView extends Component {
 
 	cancelableFetch = null;
 	timeoutHandler = null;
-	refreshTasks = null;
 	refreshAssets = null;
 
 	onOpenUploadDialog = asset => this.setState({ currentAsset: asset });
 
-	onHideUploadDialog = () => this.setState({ currentAsset: null, error: "" });
+	onHideUploadDialog = () => this.setState({ currentAsset: null });
 
 	showTaskDialog = () => this.setState({ isTasksDialog: true });
 
@@ -60,11 +59,11 @@ export default class TaskView extends Component {
 				body: JSON.stringify(payload)
 			}
 		)
-			.promise.then(this.refreshTasks)
+			.promise.then(this.refreshAssets)
 			.finally(this.onHideUploadDialog);
 	};
 
-	onClearFailedTasks = () => {
+	onClearFailedAssets = () => {
 		const { task, apiURL } = this.props;
 
 		this.cancelableFetch = fetchCancelable(
@@ -78,22 +77,29 @@ export default class TaskView extends Component {
 			}
 		);
 
-		this.cancelableFetch.promise.then(this.refreshTasks);
+		this.cancelableFetch.promise.then(this.refreshAssets);
 	};
 
-	onTasksRefreshed = ({ items = [] }) => {
-		if (!items.every(item => item.error.length <= 0)) return;
+	onAssetsRefreshed = ({ items = [] }) => {
+		const hasTasks = items.filter(item => item.isTask).length > 0;
+		if (!hasTasks) this.hideTaskDialog();
+		if (!items.every(item => !item.isError)) return;
 		if (items.length <= 0) {
 			this.hideTaskDialog();
 			this.refreshAssets();
 			return;
 		}
-		this.timeoutHandler = setTimeout(this.refreshTasks, 5000);
+		this.timeoutHandler = setTimeout(this.refreshAssets, 5000);
 	};
 
 	onCleanStatus = ({ data: { updated = false } }) => {
 		if (!updated || this.refreshAssets == null) return;
 		this.refreshAssets();
+	};
+
+	onErrorUploadDialog = msg => {
+		this.setState({ error: msg });
+		this.onHideUploadDialog();
 	};
 
 	handleAssetSelect = data => asset => {
@@ -104,11 +110,6 @@ export default class TaskView extends Component {
 				return accum;
 			}, {});
 		window.open(`https://cesium.com/ion/assets/${idMap[asset]}`);
-	};
-
-	handleError = msg => error => {
-		console.error(error);
-		this.setState({ error: msg });
 	};
 
 	componentWillUnmount() {
@@ -122,7 +123,6 @@ export default class TaskView extends Component {
 		}
 
 		this.refreshAssets = null;
-		this.refreshTasks = null;
 	}
 
 	render() {
@@ -137,16 +137,27 @@ export default class TaskView extends Component {
 				<div className={"ion-dropdowns"}>
 					<TaskFetcher
 						path={"share"}
+						onLoad={this.onAssetsRefreshed}
 						onBindRefresh={method => (this.refreshAssets = method)}
 					>
-						{({ isLoading, isError, data = { items: [] } }) => {
+						{({ isError, data = { items: [] } }) => {
+							// Asset Export and View Selector
 							const available = data.items
-								.filter(item => !item.isExported)
+								.filter(
+									item => !item.isExported && !item.isTask
+								)
 								.map(item => item.type);
-
 							const exported = data.items
 								.filter(item => item.isExported)
 								.map(item => item.type);
+							const totalAvailable =
+								available.length + exported.length;
+
+							// Tasks Selector
+							const processing = data.items.filter(
+								item => item.isTask
+							);
+							const isTasks = processing.length > 0;
 
 							return (
 								<Fragment>
@@ -169,25 +180,18 @@ export default class TaskView extends Component {
 											View in Cesium ion
 										</IonAssetButton>
 									)}
-								</Fragment>
-							);
-						}}
-					</TaskFetcher>
-
-					<TaskFetcher
-						path={"status"}
-						onBindRefresh={method => (this.refreshTasks = method)}
-						onLoad={this.onTasksRefreshed}
-						onError={this.handleError("Failed to load tasks!")}
-					>
-						{({ isLoading, isError, data }) => {
-							if (isLoading || isError) return null;
-							const isTasksButton =
-								data.items && data.items.length > 0;
-
-							return (
-								<Fragment>
-									{isTasksButton && (
+									{totalAvailable <= 0 && (
+										<Button
+											className={"ion-btn"}
+											bsStyle={"primary"}
+											bsSize={"small"}
+											onClick={this.refreshAssets}
+										>
+											<i className={"fa fa-cesium"} />
+											Refresh Available ion Assets
+										</Button>
+									)}
+									{isTasks && (
 										<Button
 											className={"ion-btn"}
 											bsStyle={"primary"}
@@ -200,9 +204,9 @@ export default class TaskView extends Component {
 									)}
 									<TasksDialog
 										show={isTasksDialog}
-										tasks={data.items}
+										tasks={processing}
 										onHide={this.hideTaskDialog}
-										onClearFailed={this.onClearFailedTasks}
+										onClearFailed={this.onClearFailedAssets}
 									/>
 								</Fragment>
 							);
@@ -228,13 +232,14 @@ export default class TaskView extends Component {
 								asset={currentAsset}
 								onHide={this.onHideUploadDialog}
 								onSubmit={this.onUploadAsset}
+								onError={this.onErrorUploadDialog}
 							/>
 						);
 					}}
 				</APIFetcher>
 				<TaskFetcher
 					method={"POST"}
-					path={"status"}
+					path={"refresh"}
 					body={JSON.stringify({ token })}
 					onLoad={this.onCleanStatus}
 				/>

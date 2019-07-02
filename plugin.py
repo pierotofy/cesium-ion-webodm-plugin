@@ -4,7 +4,7 @@ import json
 from app.plugins import PluginBase, Menu, MountPoint, logger
 
 from .globals import PROJECT_NAME
-from .api_views import ShareTaskView, StatusTaskView, ClearErrorsTaskView
+from .api_views import ShareTaskView, RefreshIonTaskView, ClearErrorsTaskView
 from .app_views import HomeView, LoadButtonView
 
 
@@ -28,7 +28,7 @@ class Plugin(PluginBase):
     def api_mount_points(self):
         return [
             MountPoint("task/(?P<pk>[^/.]+)/share", ShareTaskView.as_view()),
-            MountPoint("task/(?P<pk>[^/.]+)/status", StatusTaskView.as_view()),
+            MountPoint("task/(?P<pk>[^/.]+)/refresh", RefreshIonTaskView.as_view()),
             MountPoint("task/(?P<pk>[^/.]+)/clear", ClearErrorsTaskView.as_view()),
         ]
 

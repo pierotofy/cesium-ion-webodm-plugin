@@ -181,13 +181,23 @@ class ShareTaskView(TaskView):
 
             asset_info = get_asset_info(task.id, asset_type)
             ion_id = asset_info["id"]
-            is_exported = (
-                asset_info["id"] is not None
-                and not asset_info["upload"]["active"]
-                and not asset_info["process"]["active"]
-                and len(asset_info["error"]) <= 0
+            is_error = len(asset_info["error"]) > 0
+            is_task = (
+                asset_info["upload"]["active"]
+                or asset_info["process"]["active"]
+                or is_error
             )
-            assets.append({"type": asset_type, "isExported": is_exported, "id": ion_id})
+            is_exported = asset_info["id"] is not None and not is_task
+
+            assets.append(
+                {
+                    "type": asset_type,
+                    "isError": is_error,
+                    "isTask": is_task,
+                    "isExported": is_exported,
+                    **asset_info,
+                }
+            )
 
         return Response({"items": assets}, status=status.HTTP_200_OK)
 
@@ -225,25 +235,7 @@ class ShareTaskView(TaskView):
         return Response(status=status.HTTP_200_OK)
 
 
-class StatusTaskView(TaskView):
-    def get(self, request, pk=None):
-        task = self.get_and_check_task(request, pk)
-        active = []
-
-        for asset_type in AssetType:
-            asset_info = get_asset_info(task.id, asset_type)
-            if (
-                not asset_info["upload"]["active"]
-                and not asset_info["process"]["active"]
-                and len(asset_info["error"]) <= 0
-            ):
-                continue
-
-            asset_info["type"] = asset_type
-            active.append(asset_info)
-
-        return Response({"items": active}, status=status.HTTP_200_OK)
-
+class RefreshIonTaskView(TaskView):
     def post(self, request, pk=None):
         serializer = UpdateIonAssets(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -300,9 +292,6 @@ class TaskUploadProgress(object):
         progress = self._uploaded_bytes / self._total_bytes
         if progress == 1:
             progress = 1
-            self._asset_info["upload"]["active"] = False
-        else:
-            self._asset_info["upload"]["progress"] = True
 
         self._asset_info["upload"]["progress"] = progress
         if self._logger is not None:
@@ -380,12 +369,12 @@ def upload_to_ion(
         ).upload_file(asset_path, Bucket=bucket, Key=key, Callback=uploat_stats)
         asset_info = uploat_stats.asset_info
         asset_info["id"] = ion_id
+        asset_info["upload"]["active"] = False
+        asset_info["process"]["active"] = True
         set_asset_info(task_id, asset_type, asset_info)
 
         # On Complete Handler
         asset_logger.info("Upload complete")
-        asset_info["process"]["active"] = True
-        set_asset_info(task_id, asset_type, asset_info)
         method, url, fields = pluck(on_complete, "method", "url", "fields")
         res = requests.request(method, url=url, headers=headers, data=fields)
         res.raise_for_status()
@@ -415,7 +404,15 @@ def upload_to_ion(
         asset_logger.info("Processing complete")
         asset_info["process"]["progress"] = 1
         asset_info["process"]["active"] = False
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            asset_info["error"] = "Invalid ion token!"
+        elif e.response.status_code == 404:
+            asset_info["error"] = "Missing permisssions on ion token!"
+        else:
+            asset_info["error"] = str(e)
+        asset_logger.error(e)
+    except Exception as e:
         asset_info["error"] = str(e)
         asset_logger.error(e)
 

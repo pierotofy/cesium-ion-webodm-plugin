@@ -18,6 +18,7 @@ const TaskStatusItem = ({
 	asset,
 	progress,
 	task,
+	helpText = "",
 	active = true,
 	bsStyle = "primary"
 }) => (
@@ -33,6 +34,7 @@ const TaskStatusItem = ({
 			</Col>
 		</Row>
 		<ProgressBar active={active} now={progress} bsStyle={bsStyle} />
+		{helpText && <small>{helpText}</small>}
 	</ListGroupItem>
 );
 
@@ -85,6 +87,7 @@ export default class TaskDialog extends Component {
 						progress={progress * 100}
 						task={task}
 						bsStyle={style}
+						helpText={error}
 					/>
 				);
 			}
