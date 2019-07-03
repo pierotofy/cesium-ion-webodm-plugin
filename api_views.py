@@ -333,10 +333,6 @@ def upload_to_ion(
             "type": ASSET_TO_OUTPUT[asset_type],
             "options": {**options, "sourceType": ASSET_TO_SOURCE[asset_type]},
         }
-        import json
-
-        asset_logger.info(json.dumps(data, indent=4))
-        asset_logger.info(json.dumps(options, indent=4))
 
         # Create Asset Request
         asset_logger.info(f"Creating asset of type {asset_type}")

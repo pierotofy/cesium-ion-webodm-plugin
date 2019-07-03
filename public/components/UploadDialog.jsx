@@ -42,7 +42,7 @@ export default class UploadDialog extends Component {
 
 	onSubmit = values => {
 		const { asset, onSubmit } = this.props;
-		values = Object.assign({}, values);
+		values = JSON.parse(JSON.stringify(values));
 		const { options = {} } = values;
 
 		switch (UploadDialog.AssetSourceType[asset]) {

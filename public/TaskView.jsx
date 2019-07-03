@@ -81,15 +81,14 @@ export default class TaskView extends Component {
 	};
 
 	onAssetsRefreshed = ({ items = [] }) => {
-		const hasTasks = items.filter(item => item.isTask).length > 0;
+		const { isTasksDialog } = this.state;
+		const hasTasks = items.some(item => item.isTask);
+
 		if (!hasTasks) this.hideTaskDialog();
-		if (!items.every(item => !item.isError)) return;
-		if (items.length <= 0) {
-			this.hideTaskDialog();
-			this.refreshAssets();
-			return;
+		if (items.some(item => item.isTask && !item.isError)) {
+			const timeout = 4000 / (isTasksDialog ? 2 : 1);
+			this.timeoutHandler = setTimeout(this.refreshAssets, timeout);
 		}
-		this.timeoutHandler = setTimeout(this.refreshAssets, 5000);
 	};
 
 	onCleanStatus = ({ data: { updated = false } }) => {
@@ -140,24 +139,30 @@ export default class TaskView extends Component {
 						onLoad={this.onAssetsRefreshed}
 						onBindRefresh={method => (this.refreshAssets = method)}
 					>
-						{({ isError, data = { items: [] } }) => {
+						{({ isError, data = {} }) => {
 							// Asset Export and View Selector
-							const available = data.items
+							const { items = [] } = data;
+							const available = items
 								.filter(
-									item => !item.isExported && !item.isTask
+									item =>
+										(!item.isExported && !item.isTask) ||
+										item.isError
 								)
 								.map(item => item.type);
-							const exported = data.items
+							const exported = items
 								.filter(item => item.isExported)
 								.map(item => item.type);
 							const totalAvailable =
 								available.length + exported.length;
 
 							// Tasks Selector
-							const processing = data.items.filter(
+							const processing = items.filter(
 								item => item.isTask
 							);
 							const isTasks = processing.length > 0;
+							const isErrors = processing.some(
+								item => item.isError
+							);
 
 							return (
 								<Fragment>
@@ -194,7 +199,9 @@ export default class TaskView extends Component {
 									{isTasks && (
 										<Button
 											className={"ion-btn"}
-											bsStyle={"primary"}
+											bsStyle={
+												isErrors ? "danger" : "primary"
+											}
 											bsSize={"small"}
 											onClick={this.showTaskDialog}
 										>
