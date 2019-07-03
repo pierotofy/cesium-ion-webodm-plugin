@@ -29,7 +29,6 @@ export default class UploadDialog extends Component {
 			attribution: "",
 			options: {
 				baseTerrainId: "",
-				waterMask: false,
 				textureFormat: false
 			}
 		}
@@ -52,6 +51,7 @@ export default class UploadDialog extends Component {
 				else options.baseTerrainId = parseInt(options.baseTerrainId);
 				options.toMeters = 1;
 				options.heightReference = "WGS84";
+				options.waterMask = false;
 				break;
 			case SourceType.CAPTURE:
 				options.textureFormat = options.textureFormat ? "WEBP" : "AUTO";
@@ -83,35 +83,21 @@ export default class UploadDialog extends Component {
 				};
 
 				return (
-					<Fragment>
-						<BootstrapField
-							name={"options.baseTerrainId"}
-							label={"Base Terrain: "}
-							type={"select"}
+					<BootstrapField
+						name={"options.baseTerrainId"}
+						label={"Base Terrain: "}
+						type={"select"}
+					>
+						<IonFetcher
+							path="assets"
+							onError={this.handleError(
+								"Failed to load terrain options. " +
+									"Please check your token!"
+							)}
 						>
-							<IonFetcher
-								path="assets"
-								onError={this.handleError(
-									"Failed to load terrain options. " +
-										"Please check your token!"
-								)}
-							>
-								{loadOptions}
-							</IonFetcher>
-						</BootstrapField>
-						<BootstrapField
-							name={"options.waterMask"}
-							type={"checkbox"}
-							label={"Options"}
-							help={
-								"Treat elevation values at sea level as water. " +
-								"This will add a water mask to the terrain tileset. " +
-								"Typically, this value is only set to true when tiling a global tileset"
-							}
-						>
-							Use waster-mask
-						</BootstrapField>
-					</Fragment>
+							{loadOptions}
+						</IonFetcher>
+					</BootstrapField>
 				);
 			case SourceType.CAPTURE:
 				return (
@@ -141,7 +127,6 @@ export default class UploadDialog extends Component {
 		switch (UploadDialog.AssetSourceType[this.props.asset]) {
 			case SourceType.RASTER_TERRAIN:
 				schema.baseTerrainId = Yup.string();
-				schema.waterMask = Yup.boolean();
 				break;
 			case SourceType.CAPTURE:
 				schema.textureFormat = Yup.boolean();
