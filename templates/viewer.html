@@ -1,0 +1,37 @@
+{% extends "app/plugins/templates/base.html" %} {% block content %}
+<script src="build/cesium/Cesium.js"></script>
+<link href="build/cesium/Widgets/widgets.css" rel="stylesheet" />
+<style>
+	#{{ app_name }}-viewer {
+		height: calc(100vh - 55px);
+		position: relative;
+		margin: -15px;
+		margin-top: -10px;
+	}
+</style>
+<script>
+	PluginsAPI.SystemJS.config({
+		meta: {
+			Cesium: { loader: "globals-loader", exports: "Cesium" }
+		}
+	});
+
+	PluginsAPI.App.ready(["{{ app_name }}/build/CesiumAssetView.js", "{{ app_name }}/build/CesiumAssetView.css"], function(
+		args,
+		CesiumAssetView
+	) {
+		Cesium.Ion.defaultAccessToken = "{{ token }}";
+
+		const Element = React.createElement(CesiumAssetView, {
+			token: "{{ token }}",
+			apiURL: "{{ api_url }}",
+			ionURL: "{{ ion_url }}"
+		});
+		ReactDOM.render(
+			Element,
+			document.getElementById("{{ app_name }}-viewer")
+		);
+	});
+</script>
+<div id="{{ app_name }}-viewer" />
+{% endblock %}

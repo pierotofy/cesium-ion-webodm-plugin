@@ -50,21 +50,43 @@ def HomeView(plugin):
     return view
 
 
-def LoadButtonView(plugin):
-    def load_buttons_callback(request):
-        if request.user.is_authenticated:
-            ds = plugin.get_user_data_store(request.user)
-            token = ds.get_string("token")
-            if len(token) <= 0:
-                return False
+def CesiumAssetView(plugin):
+    @login_required
+    def view(request):
+        ds = plugin.get_user_data_store(request.user)
+        token = ds.get_string("token")
 
-            return {
+        return render(
+            request,
+            plugin.template_path("viewer.html"),
+            {
+                "title": "Cesium ion Viewer",
                 "token": token,
                 "app_name": plugin.get_name(),
                 "api_url": plugin.public_url("").rstrip("/"),
                 "ion_url": ION_API_URL,
-            }
-        else:
-            return False
+            },
+        )
 
-    return plugin.get_dynamic_script("templates/load_buttons.js", load_buttons_callback)
+    return view
+
+
+def LoadButtonView(plugin):
+    @login_required
+    def view(request):
+        ds = plugin.get_user_data_store(request.user)
+        token = ds.get_string("token")
+
+        return render(
+            request,
+            plugin.template_path("load_buttons.js"),
+            {
+                "token": token,
+                "app_name": plugin.get_name(),
+                "api_url": plugin.public_url("").rstrip("/"),
+                "ion_url": ION_API_URL,
+            },
+            content_type="text/javascript",
+        )
+
+    return view
