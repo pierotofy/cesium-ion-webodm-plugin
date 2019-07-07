@@ -2,79 +2,94 @@
 process.env.NODE_PATH = "../../../node_modules";
 require("module").Module._initPaths();
 
-let path = require("path");
-let ExtractTextPlugin = require('extract-text-webpack-plugin');
-let LiveReloadPlugin = require('webpack-livereload-plugin');
+const { DefinePlugin } = require("webpack");
+const path = require("path");
+const ExtractTextPlugin = require("extract-text-webpack-plugin");
+const LiveReloadPlugin = require("webpack-livereload-plugin");
+const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 module.exports = {
-  mode: 'production',
-  context: __dirname,
+    mode: "development",
+    context: __dirname,
 
-  entry: {"TaskView": ["./TaskView.jsx"]},
+    entry: {
+        TaskView: ["./TaskView.jsx"],
+        CesiumAssetView: ["./CesiumAssetView.jsx"]
+    },
 
-  output: {
-      path: path.join(__dirname, './build'),
-      filename: "[name].js",
-      libraryTarget: "amd"
-  },
+    output: {
+        path: path.join(__dirname, "./build"),
+        filename: "[name].js",
+        libraryTarget: "amd"
+    },
 
-  plugins: [
-    new LiveReloadPlugin(),
-    new ExtractTextPlugin('[name].css', {
-        allChunks: true
-    })
-  ],
-
-  module: {
-    rules: [
-      {
-        test: /\.jsx?$/,
-        exclude: /(node_modules|bower_components)/,
-        use: [
-          {
-            loader: 'babel-loader',
-            query: {
-              plugins: [
-                 '@babel/syntax-class-properties',
-                 '@babel/proposal-class-properties'
-              ],
-              presets: [
-                '@babel/preset-env',
-                '@babel/preset-react'
-              ]
+    plugins: [
+        new LiveReloadPlugin(),
+        new ExtractTextPlugin("[name].css", {
+            allChunks: true
+        }),
+        new CopyWebpackPlugin([
+            {
+                from: "node_modules/cesium/Build/Cesium",
+                to: "cesium"
             }
-          }
-        ],
-      },
-      {
-        test: /\.s?css$/,
-        use: ExtractTextPlugin.extract({
-          use: 'css-loader!sass-loader'
+        ]),
+        new DefinePlugin({
+            CESIUM_BASE_URL: JSON.stringify("cesium")
         })
-      },
-      {
-        test: /\.(png|jpg|jpeg|svg)/,
-        loader: "url-loader?limit=100000"
-      }
-    ]
-  },
+    ],
 
-  resolve: {
-    modules: ['node_modules', 'bower_components'],
-    extensions: ['.js', '.jsx'],
-    alias: {
-        webodm: path.resolve(__dirname, '../../../app/static/app/js')
+    module: {
+        rules: [
+            {
+                test: /\.jsx?$/,
+                exclude: /(node_modules|bower_components)/,
+                use: [
+                    {
+                        loader: "babel-loader",
+                        query: {
+                            plugins: [
+                                "@babel/syntax-class-properties",
+                                "@babel/proposal-class-properties"
+                            ],
+                            presets: [
+                                "@babel/preset-env",
+                                "@babel/preset-react"
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                test: /\.s?css$/,
+                use: ExtractTextPlugin.extract({
+                    use: "css-loader!sass-loader"
+                })
+            },
+            {
+                test: /\.(png|jpg|jpeg|svg)/,
+                loader: "url-loader?limit=100000"
+            }
+        ]
+    },
+
+    resolve: {
+        modules: ["node_modules", "bower_components"],
+        extensions: [".js", ".jsx"],
+        alias: {
+            webodm: path.resolve(__dirname, "../../../app/static/app/js")
+        }
+    },
+
+    externals: {
+        // require("jquery") is external and available
+        //  on the global let jQuery
+        jquery: "jQuery",
+        SystemJS: "SystemJS",
+        PluginsAPI: "PluginsAPI",
+        leaflet: "leaflet",
+        ReactDOM: "ReactDOM",
+        React: "React",
+        cesium: "Cesium"
     }
-  },
-
-  externals: {
-    // require("jquery") is external and available
-    //  on the global let jQuery
-    "jquery": "jQuery",
-    "SystemJS": "SystemJS",
-    "PluginsAPI": "PluginsAPI",
-    "leaflet": "leaflet",
-    "ReactDOM": "ReactDOM",
-    "React": "React"
-  }
-}
+};

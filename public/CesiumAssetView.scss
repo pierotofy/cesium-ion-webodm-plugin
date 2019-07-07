@@ -1,0 +1,47 @@
+.full-height {
+	height: 100%;
+}
+
+#ion-container {
+	@extend .full-height;
+	margin: 0;
+
+	#ion-tab {
+		position: absolute;
+		z-index: 1;
+		right: 0;
+		font-size: 1em;
+		color: #2c3e50;
+		padding: 0.5em 0.4em;
+		border: solid 1px #e7e7e7;
+		border-left: 0;
+		border-bottom-right-radius: 5px;
+		background-color: white;
+		transform: translateX(calc(100% - 1px));
+	}
+}
+
+#ion-sidebar {
+	@extend .full-height;
+	padding: 0;
+
+	.title {
+		font-weight: bold;
+		text-align: center;
+		margin-top: 1.5em;
+		border-top: 0;
+
+		&:first-child {
+			margin-top: 0;
+		}
+	}
+
+	.list-group-item {
+		border-left: 0;
+		border-right: 0;
+	}
+}
+
+#ion-cesium {
+	@extend .full-height;
+}
