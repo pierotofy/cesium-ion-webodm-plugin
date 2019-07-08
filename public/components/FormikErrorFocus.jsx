@@ -7,6 +7,7 @@ class FormikErrorFocus extends React.Component {
             value && typeof value === "object" && value.constructor === Object
         );
     }
+
     getKeysRecursively = object => {
         if (!this.isObject(object)) {
             return "";
@@ -17,6 +18,7 @@ class FormikErrorFocus extends React.Component {
         }
         return currentKey + "." + this.getKeysRecursively(object[currentKey]);
     };
+
     componentDidUpdate(prevProps) {
         const { isSubmitting, isValidating, errors } = prevProps.formik;
         const keys = Object.keys(errors);

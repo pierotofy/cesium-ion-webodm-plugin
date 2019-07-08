@@ -1,5 +1,6 @@
 import React, { PureComponent } from "react";
 
+import equal from "fast-deep-equal";
 import AppContext from "./AppContext";
 import { fetchCancelable, getCookie } from "../utils";
 
@@ -31,6 +32,8 @@ export class Fetcher extends PureComponent {
 			params,
 			...options
 		} = this.props;
+		const { data } = this.state;
+		if (data !== undefined) this.setState({ data: undefined });
 
 		let queryURL = `${url}/${path}`;
 		if (params !== undefined) {
@@ -65,6 +68,10 @@ export class Fetcher extends PureComponent {
 	componentDidMount() {
 		this.fetch();
 		this.props.onBindRefresh(this.fetch);
+	}
+
+	componentDidUpdate(nextProps) {
+		if (!equal(this.props, nextProps)) this.fetch();
 	}
 
 	componentWillUnmount() {

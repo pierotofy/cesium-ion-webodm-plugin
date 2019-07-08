@@ -20,6 +20,7 @@
   "dependencies": {
     "cesium": "^1.59.0",
     "copy-webpack-plugin": "^5.0.3",
+    "fast-deep-equal": "^2.0.1",
     "formik": "^1.5.7",
     "moment": "^2.24.0",
     "node-sass": "^4.12.0",
