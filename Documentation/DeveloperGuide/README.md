@@ -34,7 +34,7 @@ Follow these steps to run the addon directly from source so that your changes wi
 
 ## Testing
 
-1. WebODM provides open datasets which can be used as a testbench for the add-on. You will have to create an account in order to access the data. Download datasets [here](https://demo.webodm.org/dashboard/).
+1. WebODM provides open datasets which can be used as a testbench for the add-on. You will have to create an account in order to access the data. Download datasets [here](https://demo.webodm.org/dashboard/). _(This will require you creating an account)_
 
 1. To use the dataset click on a **task**, then in the **download assets** dropdown, select all. This should download a zip on to your machine.
 
