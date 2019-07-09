@@ -172,6 +172,13 @@ class UpdateIonAssets(serializers.Serializer):
 class ShareTaskView(TaskView):
     def get(self, request, pk=None):
         task = self.get_and_check_task(request, pk)
+        print(
+            task.dsm_extent,
+            task.orthophoto_extent,
+            task.dtm_extent,
+            task.dsm_extent.centroid,
+        )
+        print(task.dsm_extent.extent)
 
         assets = []
         for file_name in task.available_assets:

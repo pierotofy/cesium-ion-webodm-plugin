@@ -21,8 +21,11 @@
 		CesiumAssetView
 	) {
 		Cesium.Ion.defaultAccessToken = "{{ token }}";
+		var urlParams = new URLSearchParams(window.location.search);
+		var taskId = urlParams.get('task');
 
-		const Element = React.createElement(CesiumAssetView, {
+		var Element = React.createElement(CesiumAssetView, {
+			task: { id: taskId },
 			token: "{{ token }}",
 			apiURL: "{{ api_url }}",
 			ionURL: "{{ ion_url }}"

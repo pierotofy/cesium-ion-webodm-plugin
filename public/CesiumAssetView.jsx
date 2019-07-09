@@ -18,6 +18,7 @@ import {
 	ImplicitIonFetcher as IonFetcher
 } from "./components/Fetcher";
 import CesiumIon3DTileset from "./components/CesiumIon3DTileset";
+import CesiumIonTerrain from "./components/CesiumIonTerrain";
 import "./CesiumAssetView.scss";
 
 export default class CesiumAssetView extends Component {
@@ -116,6 +117,8 @@ export default class CesiumAssetView extends Component {
 					}}
 				/>
 			);
+		} else if (type === "TERRAIN") {
+			return <CesiumIonTerrain url={url} token={accessToken} />;
 		}
 		return null;
 	};

@@ -70,10 +70,6 @@ export class Fetcher extends PureComponent {
 		this.props.onBindRefresh(this.fetch);
 	}
 
-	componentDidUpdate(nextProps) {
-		if (!equal(this.props, nextProps)) this.fetch();
-	}
-
 	componentWillUnmount() {
 		this.props.onBindRefresh(null);
 		if (this.cancelableFetch === null) return;
