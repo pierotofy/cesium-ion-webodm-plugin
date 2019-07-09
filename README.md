@@ -7,3 +7,7 @@ The Cesium ion WebODM add-on enables you to publish and stream even the most mas
 With 3D Tiles, even multi-gigabyte models can be streamed to any device without having to download the entire model up front. By loading 3D Tiles into CesiumJS, you can fuse your model with other datasets, add geospatial context to place it at a real world location, or overlay additional details and analysis.
 
 Learn more at https://cesium.com
+
+## Contributing
+
+Interested in contributing? See [CONTRIBUTING.md](CONTRIBUTING.md). :heart:
