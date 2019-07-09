@@ -4,9 +4,7 @@ Follow these steps to run the addon directly from source so that your changes wi
 
 ## Installation
 
-1. Clone the WebODM repository `git clone git@github.com:OpenDroneMap/WebODM.git`
-
-1. Clone the plugin repository into the `plugins` folder of WebODM.
+1. Clone the WebODM repository into the `plugins` folder of WebODM.
 
     1. `cd plugins`
 
