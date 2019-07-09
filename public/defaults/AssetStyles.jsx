@@ -11,7 +11,7 @@ const AssetStyles = {
 	},
 	[AssetType.SURFACE_MODEL]: {
 		name: "Surface Model",
-		icon: "fa-table"
+		icon: "fa-area-chart"
 	},
 	[AssetType.POINTCLOUD]: {
 		name: "Pointcloud",
