@@ -1,9 +1,9 @@
 {
 	"name": "Cesium ion",
 	"webodmMinVersion": "0.6.0",
-	"description": "Upload and tile models with Cesium ion.",
+	"description": "Upload and tile ODM assets with Cesium ion.",
 	"version": "1.0.0",
-	"author": "Analytical Graphics, Inc.",
+	"author": "Cesium GS, Inc",
 	"email": "hello@cesium.com",
 	"repository": "",
 	"tags": ["cesium ion", "ceium"],

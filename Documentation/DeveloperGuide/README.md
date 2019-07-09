@@ -28,7 +28,7 @@ Follow these steps to run the addon directly from source so that your changes wi
 
 ## Setup
 
-1. Grab a token with, `assets:list, assets:read, assets:write, geocode` permissions from [Cesium ion](https://cesium.com/ion/tokens).
+1. Grab a token with, `assets:list, assets:read, assets:write` permissions from [Cesium ion](https://cesium.com/ion/tokens).
 
 1. Under the Cesium ion tab in WebODM set the token to the code generated in ion.
 

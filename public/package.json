@@ -1,28 +1,13 @@
 {
-  "name": "WebODM",
-  "version": "0.9.1",
-  "description": "Open Source Drone Image Processing",
-  "main": "index.js",
-  "scripts": {
-    "dev": "webpack --watch"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AnalyticalGraphicsInc/cesium-ion-webodm-exporter.git"
-  },
-  "author": "",
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/AnalyticalGraphicsInc/cesium-ion-webodm-exporter/issues"
-  },
-  "homepage": "https://github.com/AnalyticalGraphicsInc/cesium-ion-webodm-exporter",
-  "devDependencies": {},
-  "dependencies": {
-    "formik": "^1.5.7",
-    "moment": "^2.24.0",
-    "node-sass": "^4.12.0",
-    "react-bootstrap": "^0.32.4",
-    "sass-loader": "^7.1.0",
-    "yup": "^0.27.0"
-  }
+	"scripts": {
+		"dev": "webpack --watch"
+	},
+	"dependencies": {
+		"formik": "^1.5.7",
+		"moment": "^2.24.0",
+		"node-sass": "^4.12.0",
+		"react-bootstrap": "^0.32.4",
+		"sass-loader": "^7.1.0",
+		"yup": "^0.27.0"
+	}
 }
