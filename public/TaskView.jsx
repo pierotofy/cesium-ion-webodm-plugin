@@ -152,8 +152,6 @@ export default class TaskView extends Component {
 							const exported = items
 								.filter(item => item.isExported)
 								.map(item => item.type);
-							const totalAvailable =
-								available.length + exported.length;
 
 							// Tasks Selector
 							const processing = items.filter(
@@ -185,7 +183,7 @@ export default class TaskView extends Component {
 											View in Cesium ion
 										</IonAssetButton>
 									)}
-									{totalAvailable <= 0 && (
+									{items.length <= 0 && (
 										<Button
 											className={"ion-btn"}
 											bsStyle={"primary"}
